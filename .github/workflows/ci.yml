@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      # Сборка с mock-адресом Supabase: E2E не требуют реального проекта и секретов
+      - run: npm run test:e2e:build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL 16 + SQL-тесты Phase 1 / 1.5
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-16 >/dev/null
+          sudo bash supabase/tests/run_local.sh | tee /tmp/db.log
+          grep -q "RESULT 44 / 44 passed" /tmp/db.log
+          grep -q "RESULT 118 / 118 passed" /tmp/db.log
+          grep -q "RESULT 12 / 12 passed" /tmp/db.log

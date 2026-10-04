@@ -5,10 +5,28 @@
 ## Состояние
 - **Фаза 1** (архитектура и база данных) — выполнена.
 - **Фаза 1.5** (закрытие архитектурных вопросов перед интерфейсом) — выполнена; M8 ждёт ручного применения (см. ниже).
-- **Фаза 2** (интерфейс Next.js) — не начата. План: `docs/DECISIONS.md` и PROJECT_CONTEXT.md.
+- **Фаза 2.1** (фундамент веб-приложения: Next.js, авторизация, оболочка, Dashboard) — выполнена в ветке `phase-2-1`.
+- Следующие этапы Phase 2: 2.2 пользователи и роли, 2.3+ модули (см. PROJECT_CONTEXT.md).
+
+## Веб-приложение (Phase 2.1)
+Next.js 16 (App Router) · React 19 · TypeScript strict · Tailwind CSS 4 · shadcn/ui (Radix) · Supabase SSR · Zod · TanStack Table · Lucide · Vitest · Playwright.
+
+```bash
+npm ci
+cp .env.example .env.local   # URL и publishable-ключ Supabase
+npm run dev                  # http://localhost:3000
+```
+Полная инструкция: запуск, подключение Supabase, GitHub и Vercel — **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
+Принципы интерфейса: роль берётся из БД (`app_role()`), данные защищает RLS; интерфейс ничего не считает — суммы и KPI
+приходят из PostgreSQL (`kpi_year()`), `NULL` показывается как «нет данных» или «Нет доступа», а не 0.
 
 ## Структура
 ```
+src/app/            маршруты: (auth)/login, (app)/dashboard … settings, proxy.ts — защита маршрутов
+src/components/     ui (shadcn), layout (боковая панель, верхняя панель), dashboard, data-table, common
+src/lib/            supabase (browser/server/proxy/realtime), auth (роли, сессия, схемы), форматирование
+e2e/                Playwright и mock Supabase для тестов
 supabase/
   migrations/   миграции; имя файла = версия в истории Supabase (без migration repair)
   tests/        phase1_tests.sql, phase1_5_tests.sql, phase1_5_local_only_tests.sql, fingerprint.sql, run_local.sh
@@ -41,6 +59,8 @@ docs/DECISIONS.md       принятые архитектурные решени
 
 ## Проверки (для разработчика)
 ```
+npm run check                             # typecheck + lint + unit-тесты + сборка
+npm run test:e2e:build && npm run test:e2e
 bash supabase/tests/run_local.sh          # миграции + Phase 1 (44) + Phase 1.5 (118) + локальные (12) + отпечаток
 bash supabase/rollback/verify_rollback.sh # вперёд -> откат -> отпечаток равен Phase 1
 ```
