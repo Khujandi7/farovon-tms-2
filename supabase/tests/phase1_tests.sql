@@ -37,13 +37,18 @@ select 'E-'||lpad(g::text,4,'0'), 'Сотрудник '||g, 'сотрудник 
        (select id from org_units where level='DEPARTMENT'), (select id from org_units where level='UNIT'), 'Специалист'
 from generate_series(1,60) g;
 
-insert into budget_versions(name,fiscal_year,status,approved_at) values
-  ('Бюджет 2026',2026,'APPROVED','2025-12-30'),
-  ('Оптимизация',2026,'CANCELLED',null);
+-- Phase 1.5: версии и строки создаются как DRAFT, статусы переводятся через рабочий процесс бюджета
+insert into budget_versions(name,fiscal_year,status) values
+  ('Бюджет 2026',2026,'DRAFT'),
+  ('Оптимизация',2026,'DRAFT');
 insert into budget_lines(version_id,topic,amount_usd,quarter) values
-  ((select id from budget_versions where status='APPROVED'),'Тема А',1000,1),
-  ((select id from budget_versions where status='APPROVED'),'Тема Б',500,2),
-  ((select id from budget_versions where status='CANCELLED'),'Тема В',99999,4);
+  ((select id from budget_versions where name='Бюджет 2026'),'Тема А',1000,1),
+  ((select id from budget_versions where name='Бюджет 2026'),'Тема Б',500,2),
+  ((select id from budget_versions where name='Оптимизация'),'Тема В',99999,4);
+select set_config('app.budget_workflow','yes',true);
+update budget_versions set status='APPROVED', approved_at='2025-12-30' where name='Бюджет 2026';
+update budget_versions set status='CANCELLED' where name='Оптимизация';
+select set_config('app.budget_workflow','no',true);
 
 insert into trainings(canonical_id,legacy_reestr_id,title,format,kind,hours,start_date,end_date,status,source_type)
 values ('T-0007',7,'Системное мышление','OFFLINE','EXTERNAL',32,'2025-07-13','2025-07-26','COMPLETED','UNPLANNED');
@@ -81,7 +86,8 @@ select pg_temp.ok(planned_total_usd(approved_version(2026::smallint)) = 1500, 'T
 select pg_temp.expect_error($$select planned_total_tjs(approved_version(2026::smallint))$$, 'T3 нет бюджетного курса = ошибка', 'бюджетный курс');
 update app_settings set value='11' where key='budget_fx_usd_tjs';
 select pg_temp.ok(planned_total_tjs(approved_version(2026::smallint)) = 16500, 'T3 план в сомони 1500 x 11');
-select pg_temp.expect_error($$insert into budget_versions(name,fiscal_year,status) values ('Дубль',2026,'APPROVED')$$, 'T3 вторая утверждённая версия года запрещена', 'unique');
+-- Phase 1.5: прямой INSERT APPROVED блокирует триггер; индекс «одна утверждённая версия на год» проверяем как страховку (с флагом рабочего процесса)
+select pg_temp.expect_error($$select set_config('app.budget_workflow','yes',true); insert into budget_versions(name,fiscal_year,status) values ('Дубль',2026,'APPROVED')$$, 'T3 вторая утверждённая версия года запрещена', 'unique');
 
 -- ---------- T4. Плановые/внеплановые ----------
 insert into training_requests(canonical_id,plan_year,topic) values ('REQ-1',2026,'Excel');
