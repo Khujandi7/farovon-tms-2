@@ -18,3 +18,11 @@ coverage/
 # Системные файлы
 .DS_Store
 *.log
+
+# Next.js / тесты
+next-env.d.ts
+*.tsbuildinfo
+playwright-report/
+test-results/
+blob-report/
+.vercel
