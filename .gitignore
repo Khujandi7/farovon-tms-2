@@ -1,0 +1,20 @@
+# Секреты и локальные настройки: никогда не отправлять в GitHub
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.vercel/
+.supabase/
+supabase/.temp/
+
+# Сборка и зависимости (понадобятся с Фазы 2)
+node_modules/
+.next/
+out/
+dist/
+coverage/
+
+# Системные файлы
+.DS_Store
+*.log
