@@ -1,5 +1,5 @@
 /** Маршруты, доступные без входа. Всё остальное закрыто (см. src/proxy.ts). */
-export const PUBLIC_PATHS = ["/login", "/auth/error"] as const;
+export const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth/confirm", "/auth/error"] as const;
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

@@ -59,4 +59,22 @@
 - Создать проект в Vercel из репозитория и задать переменные `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`
 - Supabase Auth: регистрация OFF, anonymous OFF, пароль ≥ 12, SMTP, Site URL / Redirect URLs (адрес Vercel и localhost)
 - Применить M8 вручную; bootstrap первого ADMIN; внести курсы
-- Следующий этап: Phase 2.2 (приглашение пользователей администратором, управление ролями) — только после подтверждения владельца
+- Следующий этап: Phase 2.2 (см. ниже)
+
+## Phase 2.2 — Users & Roles (ветка `phase-2-2`, 05.10.2026)
+- Исходное состояние: Phase 1, 1.5 (включая M8) и 2.1 в `main`; в Production 12 миграций, первый ADMIN создан
+- Settings → Users (только ADMIN; для остальных ролей и по прямому URL — «Нет доступа», данные не загружаются): таблица ФИО · Email · Роль · Статус · Приглашён/подтверждён · Последний вход · Действия
+- Действия ADMIN: приглашение (email, ФИО, роль), смена роли, деактивация/восстановление, повторное приглашение, ссылка сброса пароля. Над собой действий нет
+- Пользователь: `/auth/confirm` (`verifyOtp`) → `/auth/set-password` (пароль ≥ 12), «Забыли пароль?» на странице входа, смена своего пароля в Настройках
+- Приглашение: Auth Admin API → `profiles` сессией ADMIN (аудит с актором) → при сбое профиля пользователь Auth удаляется
+- **M9** `20261005120000_phase2_2_01_profiles_self_protection.sql` — триггер `profiles_self_protect` (P0011): нельзя менять себе `role`/`is_active`, удалять свой профиль. Rollback: `supabase/rollback/rollback_09_profiles_self_protection.sql`. **В Production НЕ применена** (применяет владелец после ревью)
+- Новые таблицы и колонки не добавлялись; RLS, `app_role()`, `profiles_guard`, аудит, KPI/бюджет/расходы/feedback не менялись
+- Типы `src/types/database.ts` перегенерированы из Production после M8
+- Проверки: typecheck, ESLint, Vitest, Playwright (desktop + mobile), SQL-тесты (Phase 1 / 1.5 / 2.2), откат M9, сборка, проверка клиентского бандла на ключ service_role
+- Решение D12 в `docs/DECISIONS.md`
+
+### Действия владельца после Phase 2.2
+- Применить M9 (после ревью), затем `supabase migration list`
+- Supabase Auth: шаблоны Invite/Reset password с `/auth/confirm?token_hash=…` (docs/DEPLOYMENT.md, п. 8), Redirect URLs, SMTP, пароль ≥ 12, регистрация и anonymous OFF
+- Vercel: `SUPABASE_SERVICE_ROLE_KEY` (серверная переменная), `NEXT_PUBLIC_SITE_URL`
+- Известное ограничение: почтовые сканеры могут «открыть» ссылку и израсходовать одноразовый токен — тогда ADMIN отправляет приглашение/сброс повторно

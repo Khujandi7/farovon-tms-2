@@ -24,6 +24,7 @@ export default defineConfig({
   webServer: [
     {
       command: "node e2e/mock-supabase-server.mjs",
+      env: { E2E_SERVICE_ROLE_KEY: "e2e-service-role-key" },
       url: "http://127.0.0.1:54399/health",
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
@@ -34,7 +35,13 @@ export default defineConfig({
       url: `http://127.0.0.1:${port}/login`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
-      env: { NO_PROXY: "localhost,127.0.0.1", no_proxy: "localhost,127.0.0.1" },
+      env: {
+        NO_PROXY: "localhost,127.0.0.1",
+        no_proxy: "localhost,127.0.0.1",
+        // Только для mock-сервера: настоящего ключа здесь нет
+        SUPABASE_SERVICE_ROLE_KEY: "e2e-service-role-key",
+        NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${port}`,
+      },
     },
   ],
 });

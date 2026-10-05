@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Users } from "lucide-react";
 import { SectionPage } from "@/components/common/section-page";
 import { ThemeToggle } from "@/components/common/theme-toggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ROLE_LABELS } from "@/lib/auth/roles";
+import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { Button } from "@/components/ui/button";
+import { ROLE_LABELS, canWrite } from "@/lib/auth/roles";
 
 export const metadata: Metadata = { title: "Настройки" };
 
@@ -27,6 +31,30 @@ export default function SettingsPage() {
                   <span className="rounded-md bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand">{ROLE_LABELS[session.role]}</span>
                 </dd>
               </dl>
+            </CardContent>
+          </Card>
+          {canWrite(session.role, "users") && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Пользователи и роли</CardTitle>
+                <CardDescription>Приглашения, смена ролей, деактивация, сброс пароля.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="outline">
+                  <Link href="/settings/users">
+                    <Users /> Управление пользователями
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Пароль</CardTitle>
+              <CardDescription>Смена собственного пароля. Роль и статус учётной записи здесь не меняются.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChangePasswordForm />
             </CardContent>
           </Card>
           <Card>

@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "test:db": "bash supabase/tests/run_local.sh",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "test:e2e:build": "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54399 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=e2e-publishable-key next build"
+    "test:e2e:build": "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54399 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=e2e-publishable-key next build",
+    "check:bundle": "node scripts/check-client-bundle.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

@@ -31,7 +31,7 @@ npm run dev                     # http://localhost:3000
    - `NEXT_PUBLIC_SUPABASE_URL` — `https://ylfrblprjlzfcdutswax.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — publishable-ключ (`sb_publishable_…`) или legacy anon key.
    - `NEXT_PUBLIC_SITE_URL` — адрес приложения.
-3. **Никогда** не кладите `service_role` / `sb_secret_…` в переменные с префиксом `NEXT_PUBLIC_` — приложение откажется стартовать с секретным ключом в публичной переменной. В Phase 2.1 секретный ключ не нужен.
+3. **Никогда** не кладите `service_role` / `sb_secret_…` в переменные с префиксом `NEXT_PUBLIC_` — приложение откажется стартовать с секретным ключом в публичной переменной. `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API Keys → secret / service_role) нужен только серверу и только разделу Users (Phase 2.2); см. п. 8.
 4. **Authentication → Sign In / Providers** (вручную, решение D11):
    - «Allow new users to sign up» — **выключить**;
    - «Allow anonymous sign-ins» — **выключить**;
@@ -42,9 +42,15 @@ npm run dev                     # http://localhost:3000
    ```sql
    select bootstrap_first_admin('email@farovon.tj', 'Фамилия Имя');
    ```
-7. **M8** (`supabase/migrations/20261005100008_…`) ещё не применена: выполнить её содержимое в SQL Editor (или `supabase db push`), затем переименовать файл по выданной версии и перегенерировать `src/types/database.ts`.
+7. **M8** применена в Production (05.10.2026). **M9** (`20261005120000_phase2_2_01_profiles_self_protection.sql`, Phase 2.2) применяется вручную после ревью: `supabase db push` или SQL Editor; затем `supabase migration list` — Local и Remote должны совпасть.
+8. **Письма Phase 2.2** (Authentication → Email Templates), иначе ссылки из писем не сработают:
+   - *Invite user*: `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite">Принять приглашение</a>`
+   - *Reset password*: `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Задать новый пароль</a>`
+   - Site URL = адрес приложения; в Redirect URLs добавить `https://<домен>/auth/confirm` (и `http://localhost:3000/auth/confirm`).
+   - Пароль ≥ 12 символов; желательно включить Leaked Password Protection (если доступно на тарифе).
+   - Прежние значения шаблонов и Site URL сохраните перед изменением (для отката).
 
-Остальных пользователей до Phase 2.2 создаёт ADMIN: Authentication → Users → Add user, затем строка в `profiles` с нужной ролью (через SQL Editor). Пользователь без профиля или с `is_active = false` войти не сможет.
+Пользователей создаёт ADMIN в приложении: **Настройки → Пользователи → Пригласить**. Ручное создание в Authentication → Users больше не нужно (кроме первого ADMIN). Пользователь без профиля или с `is_active = false` войти не сможет.
 
 ### Realtime
 Клиент подготовлен (`src/lib/supabase/realtime.ts`, хук `useRealtimeTable`). Чтобы события приходили, таблицу нужно
@@ -53,7 +59,7 @@ npm run dev                     # http://localhost:3000
 
 ## 3. GitHub
 
-Рабочая ветка `phase-2-1` → Pull Request в `main`. CI (`.github/workflows/ci.yml`) запускает typecheck, lint,
+Рабочая ветка фазы (`phase-2-2` …) → Pull Request в `main`. CI (`.github/workflows/ci.yml`) запускает typecheck, lint,
 Vitest, сборку, Playwright и SQL-тесты; секреты для CI не нужны.
 
 ## 4. Vercel
@@ -61,7 +67,7 @@ Vitest, сборку, Playwright и SQL-тесты; секреты для CI н�
 1. vercel.com → **Add New → Project** → импорт `Khujandi7/farovon-tms-2`. Framework определится как Next.js, настройки сборки по умолчанию.
 2. **Settings → Environment Variables** (Production и Preview):
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`.
-   `SUPABASE_SERVICE_ROLE_KEY` — не добавлять до Phase 2.2 (и только как серверную переменную, без `NEXT_PUBLIC_`).
+   `SUPABASE_SERVICE_ROLE_KEY` — серверная переменная для раздела Users (**без** `NEXT_PUBLIC_`). Проверка после сборки: `SUPABASE_SERVICE_ROLE_KEY=x npm run build && npm run check:bundle` — ключа в `.next/static` быть не должно.
 3. Node.js version: 22.x. Регион функций — ближе к Supabase (проект в ap-southeast-1, Сингапур): `sin1`.
 4. Deploy. После первого деплоя внести домен в Supabase → URL Configuration (раздел 2, п. 5).
 5. Предпросмотры (Preview) создаются для каждого PR автоматически.

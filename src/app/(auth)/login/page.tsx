@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Logo } from "@/components/common/logo";
 import { ThemeToggle } from "@/components/common/theme-toggle";
 import { LoginForm } from "./login-form";
@@ -27,8 +28,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <div className="rounded-xl border bg-card p-6 shadow-sm">
             <LoginForm next={next} />
           </div>
-          <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
-            Регистрации нет: учётные записи создаёт администратор. Нет доступа или забыли пароль — обратитесь к администратору FAROVON TMS.
+          <p className="mt-4 text-center text-sm">
+            <Link href="/forgot-password" className="text-muted-foreground underline underline-offset-4 hover:text-foreground">
+              Забыли пароль?
+            </Link>
+          </p>
+          <p className="mt-4 text-center text-xs leading-relaxed text-muted-foreground">
+            Регистрации нет: учётные записи создаёт администратор по приглашению. Нет доступа — обратитесь к администратору FAROVON TMS.
           </p>
         </div>
       </main>
