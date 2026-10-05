@@ -36,5 +36,8 @@ if [ -f "$DIR/tests/phase1_5_tests.sql" ]; then
   echo "== ТЕСТЫ Phase 1.5 =="; run_test "$DIR/tests/phase1_5_tests.sql"
   echo "== ТЕСТЫ Phase 1.5 (только локально: DELETE) =="; run_test "$DIR/tests/phase1_5_local_only_tests.sql"
 fi
+if [ -f "$DIR/tests/phase2_2_tests.sql" ]; then
+  echo "== ТЕСТЫ Phase 2.2 (M9, только локально) =="; run_test "$DIR/tests/phase2_2_tests.sql"
+fi
 echo "== ОТПЕЧАТОК СТРУКТУРЫ =="
 psql -U postgres -d tms_test -At -F ' | ' -f "$DIR/tests/fingerprint.sql"
