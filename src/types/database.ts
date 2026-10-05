@@ -1,8 +1,8 @@
-// FAROVON TMS 2.0 — типы БД, сгенерированы из Supabase (ylfrblprjlzfcdutswax) после Phase 1.5 M7, 04.10.2026.
+// FAROVON TMS 2.0 — типы БД, сгенерированы из Supabase (ylfrblprjlzfcdutswax) после Phase 1.5 M8, 05.10.2026.
 // НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ. Перегенерировать после каждой миграции.
-// ВНИМАНИЕ: M8 (удаление устаревших столбцов feedback_responses: employee_id, respondent_raw, dedupe_key,
-// match_confidence, match_status) в Supabase ещё не применена, поэтому эти столбцы пока есть в типах.
-// Использовать их в коде нельзя: личность респондента только через feedback_respondents / reveal_respondent().
+// M8 применена: устаревших столбцов feedback_responses (employee_id, respondent_raw, dedupe_key,
+// match_confidence, match_status) нет. Личность респондента только через feedback_respondents / reveal_respondent().
+// M9 (Phase 2.2, только триггер profiles_self_protect) структуру типов не меняет.
 export type Json =
   | string
   | number
@@ -572,48 +572,26 @@ export type Database = {
       feedback_responses: {
         Row: {
           comment: string | null
-          dedupe_key: string
-          employee_id: string | null
           feedback_training_id: string | null
           id: string
           is_archive: boolean
-          match_confidence: number | null
-          match_status: string
-          respondent_raw: string
           submitted_at: string
         }
         Insert: {
           comment?: string | null
-          dedupe_key: string
-          employee_id?: string | null
           feedback_training_id?: string | null
           id?: string
           is_archive?: boolean
-          match_confidence?: number | null
-          match_status?: string
-          respondent_raw: string
           submitted_at: string
         }
         Update: {
           comment?: string | null
-          dedupe_key?: string
-          employee_id?: string | null
           feedback_training_id?: string | null
           id?: string
           is_archive?: boolean
-          match_confidence?: number | null
-          match_status?: string
-          respondent_raw?: string
           submitted_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "feedback_responses_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "feedback_responses_feedback_training_id_fkey"
             columns: ["feedback_training_id"]
