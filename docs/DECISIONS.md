@@ -64,3 +64,16 @@ Email + пароль. Публичная регистрация OFF. Anonymous s
 Неактивный пользователь (`profiles.is_active = false`) теряет доступ сразу.
 Первый ADMIN: создать пользователя в Authentication → Users, затем один раз `select bootstrap_first_admin('email','ФИО')`
 в SQL Editor. Последнего активного ADMIN нельзя понизить, деактивировать или удалить.
+
+## D12. Пользователи и роли (Phase 2.2)
+Только по приглашению: ADMIN вводит email, ФИО и роль → Auth Admin API `inviteUserByEmail()` → ADMIN (своей сессией, под RLS
+`profiles_write` и аудитом) создаёт строку `profiles`. Не создался профиль — только что созданный пользователь Auth удаляется.
+Временных паролей нет: ссылка из письма → `/auth/confirm` (`verifyOtp(token_hash, type)`, типы только `invite`/`recovery`)
+→ `/auth/set-password`, пароль ≥ 12 символов. Забытый пароль — самостоятельно (`/forgot-password`, ответ не раскрывает наличие email)
+или ссылкой от ADMIN. Свой пароль пользователь меняет в Настройках (нужен текущий пароль).
+`service_role` используется только для Auth Admin API (приглашение, блокировка, email/даты входа) и только в серверном коде
+(`server-only`); запись в таблицы — сессией ADMIN, иначе `audit_log.user_id` был бы NULL. Роль всегда из `app_role()`.
+Деактивация: `profiles.is_active = false` (доступ закрыт сразу) + блокировка входа в Auth (`ban_duration`), восстановление — наоборот.
+Защита в БД (M9 `profiles_self_protect`, P0011): никто, включая ADMIN, не меняет себе `role`/`is_active` и не удаляет свой профиль;
+`profiles_guard` (P0003) по-прежнему не даёт убрать последнего активного ADMIN. Не блокируются SQL Editor, service_role и
+`bootstrap_first_admin()` (там `auth.uid()` = NULL). Те же правила дублируются в приложении (понятные сообщения).

@@ -4,9 +4,10 @@
 
 ## Состояние
 - **Фаза 1** (архитектура и база данных) — выполнена.
-- **Фаза 1.5** (закрытие архитектурных вопросов перед интерфейсом) — выполнена; M8 ждёт ручного применения (см. ниже).
-- **Фаза 2.1** (фундамент веб-приложения: Next.js, авторизация, оболочка, Dashboard) — выполнена в ветке `phase-2-1`.
-- Следующие этапы Phase 2: 2.2 пользователи и роли, 2.3+ модули (см. PROJECT_CONTEXT.md).
+- **Фаза 1.5** (закрытие архитектурных вопросов перед интерфейсом) — выполнена, M8 применена в Production.
+- **Фаза 2.1** (фундамент веб-приложения: Next.js, авторизация, оболочка, Dashboard) — выполнена, в `main`.
+- **Фаза 2.2** (пользователи и роли: приглашение, роли, деактивация, сброс пароля) — в ветке `phase-2-2`; M9 применяет владелец.
+- Следующие этапы Phase 2: 2.3+ модули (см. PROJECT_CONTEXT.md).
 
 ## Веб-приложение (Phase 2.1)
 Next.js 16 (App Router) · React 19 · TypeScript strict · Tailwind CSS 4 · shadcn/ui (Radix) · Supabase SSR · Zod · TanStack Table · Lucide · Vitest · Playwright.
@@ -23,7 +24,7 @@ npm run dev                  # http://localhost:3000
 
 ## Структура
 ```
-src/app/            маршруты: (auth)/login, (app)/dashboard … settings, proxy.ts — защита маршрутов
+src/app/            маршруты: (auth)/login, forgot-password, auth/confirm, auth/set-password, (app)/dashboard … settings/users
 src/components/     ui (shadcn), layout (боковая панель, верхняя панель), dashboard, data-table, common
 src/lib/            supabase (browser/server/proxy/realtime), auth (роли, сессия, схемы), форматирование
 e2e/                Playwright и mock Supabase для тестов
@@ -46,7 +47,8 @@ docs/DECISIONS.md       принятые архитектурные решени
 | 20261004115210 `phase1_5_05` | Неизменяемость утверждённого бюджета: `create_budget_revision()` → `approve_budget_version()` |
 | 20261004115216 `phase1_5_06` | Единые KPI: `kpi_year()` (A–E) |
 | 20261004130810 `phase1_5_07` | Приватность обратной связи: `feedback_respondents`, `feedback_summary()`, `reveal_respondent()` |
-| 20261005100008 `phase1_5_08` | **Не применена в Supabase.** Удаление устаревших столбцов личности из `feedback_responses`. Выполнить вручную (SQL Editor или `supabase db push`): инструмент Supabase MCP зависает на `DROP`. |
+| 20261005100008 `phase1_5_08` | Удаление устаревших столбцов личности из `feedback_responses` (применена в Production). |
+| 20261005120000 `phase2_2_01` | **M9, не применена в Production.** Триггер `profiles_self_protect`: нельзя менять себе роль/статус и удалять свой профиль (service_role, SQL Editor и bootstrap не блокируются). |
 
 ## Главные правила
 1. Деньги, курсы, KPI и агрегаты считает только база. `amount_tjs` и курс пишет триггер.
@@ -61,7 +63,8 @@ docs/DECISIONS.md       принятые архитектурные решени
 ```
 npm run check                             # typecheck + lint + unit-тесты + сборка
 npm run test:e2e:build && npm run test:e2e
-bash supabase/tests/run_local.sh          # миграции + Phase 1 (44) + Phase 1.5 (118) + локальные (12) + отпечаток
+bash supabase/tests/run_local.sh          # миграции + Phase 1 (44) + Phase 1.5 (118) + локальные (12) + Phase 2.2 (35) + отпечаток
+SUPABASE_SERVICE_ROLE_KEY=x npm run build && npm run check:bundle   # ключа нет в клиентском бандле
 bash supabase/rollback/verify_rollback.sh # вперёд -> откат -> отпечаток равен Phase 1
 ```
 Нужен PostgreSQL 16+ на машине (скрипт находит его в /usr/lib/postgresql/*).
