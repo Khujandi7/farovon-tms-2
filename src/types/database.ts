@@ -1,8 +1,7 @@
-// FAROVON TMS 2.0 — типы БД, сгенерированы из Supabase (ylfrblprjlzfcdutswax) после Phase 1.5 M8, 05.10.2026.
-// НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ. Перегенерировать после каждой миграции.
-// M8 применена: устаревших столбцов feedback_responses (employee_id, respondent_raw, dedupe_key,
-// match_confidence, match_status) нет. Личность респондента только через feedback_respondents / reveal_respondent().
-// M9 (Phase 2.2, только триггер profiles_self_protect) структуру типов не меняет.
+// FAROVON TMS 2.0 — типы БД. База: Production после Phase 1.5 M8 + локально применённые миграции Phase 3A (M10–M13).
+// ВНИМАНИЕ: M10–M13 НЕ применены в Production (ждут отдельного подтверждения). После их применения перегенерировать из Supabase.
+// Сгенерировано @supabase/postgres-meta по локальной БД (supabase/tests/run_local.sh); структура Phase 1–2.2 совпадает с Production.
+// НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.
 export type Json =
   | string
   | number
@@ -47,6 +46,7 @@ export type Database = {
           id: number
           new_row: Json | null
           old_row: Json | null
+          reason: string | null
           row_id: string | null
           table_name: string
           user_id: string | null
@@ -57,6 +57,7 @@ export type Database = {
           id?: never
           new_row?: Json | null
           old_row?: Json | null
+          reason?: string | null
           row_id?: string | null
           table_name: string
           user_id?: string | null
@@ -67,6 +68,7 @@ export type Database = {
           id?: never
           new_row?: Json | null
           old_row?: Json | null
+          reason?: string | null
           row_id?: string | null
           table_name?: string
           user_id?: string | null
@@ -255,38 +257,67 @@ export type Database = {
       dq_issues: {
         Row: {
           created_at: string
+          details: Json | null
           entity_id: string | null
           entity_table: string | null
+          fingerprint: string | null
           id: number
           message: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
           rule_code: string
           severity: Database["public"]["Enums"]["dq_severity"]
+          source: string
           status: string
           suggestion: string | null
+          updated_at: string
         }
         Insert: {
           created_at?: string
+          details?: Json | null
           entity_id?: string | null
           entity_table?: string | null
+          fingerprint?: string | null
           id?: never
           message: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           rule_code: string
           severity: Database["public"]["Enums"]["dq_severity"]
+          source?: string
           status?: string
           suggestion?: string | null
+          updated_at?: string
         }
         Update: {
           created_at?: string
+          details?: Json | null
           entity_id?: string | null
           entity_table?: string | null
+          fingerprint?: string | null
           id?: never
           message?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           rule_code?: string
           severity?: Database["public"]["Enums"]["dq_severity"]
+          source?: string
           status?: string
           suggestion?: string | null
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "dq_issues_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_aliases: {
         Row: {
@@ -749,6 +780,52 @@ export type Database = {
         }
         Relationships: []
       }
+      session_attendance: {
+        Row: {
+          marked_at: string
+          marked_by: string | null
+          participant_id: string
+          session_id: string
+          status: Database["public"]["Enums"]["attendance_status"]
+        }
+        Insert: {
+          marked_at?: string
+          marked_by?: string | null
+          participant_id: string
+          session_id: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+        }
+        Update: {
+          marked_at?: string
+          marked_by?: string | null
+          participant_id?: string
+          session_id?: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_attendance_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_attendance_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "training_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "training_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       source_files: {
         Row: {
           file_hash: string | null
@@ -891,36 +968,52 @@ export type Database = {
       }
       training_participants: {
         Row: {
+          added_at: string
+          added_by: string | null
           attended: boolean
           department_snapshot: string | null
           employee_id: string
           id: string
+          note: string | null
           position_snapshot: string | null
           session_id: string | null
           training_id: string
           unit_snapshot: string | null
         }
         Insert: {
+          added_at?: string
+          added_by?: string | null
           attended?: boolean
           department_snapshot?: string | null
           employee_id: string
           id?: string
+          note?: string | null
           position_snapshot?: string | null
           session_id?: string | null
           training_id: string
           unit_snapshot?: string | null
         }
         Update: {
+          added_at?: string
+          added_by?: string | null
           attended?: boolean
           department_snapshot?: string | null
           employee_id?: string
           id?: string
+          note?: string | null
           position_snapshot?: string | null
           session_id?: string | null
           training_id?: string
           unit_snapshot?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "training_participants_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "training_participants_employee_id_fkey"
             columns: ["employee_id"]
@@ -953,12 +1046,16 @@ export type Database = {
       }
       training_requests: {
         Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           budget_amount: number | null
           budget_currency: Database["public"]["Enums"]["currency_code"] | null
           canonical_id: string
           carry_forward: boolean
           comment: string | null
           created_at: string
+          created_by: string | null
           department_id: number | null
           direction: string | null
           format: Database["public"]["Enums"]["training_format"] | null
@@ -978,14 +1075,20 @@ export type Database = {
           topic: string
           trainer_raw: string | null
           unit_id: number | null
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           budget_amount?: number | null
           budget_currency?: Database["public"]["Enums"]["currency_code"] | null
           canonical_id: string
           carry_forward?: boolean
           comment?: string | null
           created_at?: string
+          created_by?: string | null
           department_id?: number | null
           direction?: string | null
           format?: Database["public"]["Enums"]["training_format"] | null
@@ -1005,14 +1108,20 @@ export type Database = {
           topic: string
           trainer_raw?: string | null
           unit_id?: number | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           budget_amount?: number | null
           budget_currency?: Database["public"]["Enums"]["currency_code"] | null
           canonical_id?: string
           carry_forward?: boolean
           comment?: string | null
           created_at?: string
+          created_by?: string | null
           department_id?: number | null
           direction?: string | null
           format?: Database["public"]["Enums"]["training_format"] | null
@@ -1032,8 +1141,24 @@ export type Database = {
           topic?: string
           trainer_raw?: string | null
           unit_id?: number | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "training_requests_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "training_requests_department_id_fkey"
             columns: ["department_id"]
@@ -1062,32 +1187,45 @@ export type Database = {
             referencedRelation: "org_units"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "training_requests_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       training_sessions: {
         Row: {
+          comment: string | null
           end_date: string
           hours: number
           id: string
           legacy_reestr_id: number | null
+          location: string | null
           session_no: number
           start_date: string
           training_id: string
         }
         Insert: {
+          comment?: string | null
           end_date: string
           hours: number
           id?: string
           legacy_reestr_id?: number | null
+          location?: string | null
           session_no: number
           start_date: string
           training_id: string
         }
         Update: {
+          comment?: string | null
           end_date?: string
           hours?: number
           id?: string
           legacy_reestr_id?: number | null
+          location?: string | null
           session_no?: number
           start_date?: string
           training_id?: string
@@ -1154,6 +1292,8 @@ export type Database = {
           canonical_id: string
           comment: string | null
           created_at: string
+          created_by: string | null
+          description: string | null
           end_date: string
           format: Database["public"]["Enums"]["training_format"]
           hours: number
@@ -1161,6 +1301,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["training_kind"]
           legacy_reestr_id: number | null
           location: string | null
+          participants_planned: number | null
           request_id: string | null
           source_confirmed: boolean
           source_type: Database["public"]["Enums"]["source_type"]
@@ -1171,6 +1312,7 @@ export type Database = {
             | Database["public"]["Enums"]["unplanned_reason"]
             | null
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           archive_reason?: string | null
@@ -1179,6 +1321,8 @@ export type Database = {
           canonical_id: string
           comment?: string | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
           end_date: string
           format: Database["public"]["Enums"]["training_format"]
           hours: number
@@ -1186,6 +1330,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["training_kind"]
           legacy_reestr_id?: number | null
           location?: string | null
+          participants_planned?: number | null
           request_id?: string | null
           source_confirmed?: boolean
           source_type: Database["public"]["Enums"]["source_type"]
@@ -1196,6 +1341,7 @@ export type Database = {
             | Database["public"]["Enums"]["unplanned_reason"]
             | null
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           archive_reason?: string | null
@@ -1204,6 +1350,8 @@ export type Database = {
           canonical_id?: string
           comment?: string | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
           end_date?: string
           format?: Database["public"]["Enums"]["training_format"]
           hours?: number
@@ -1211,6 +1359,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["training_kind"]
           legacy_reestr_id?: number | null
           location?: string | null
+          participants_planned?: number | null
           request_id?: string | null
           source_confirmed?: boolean
           source_type?: Database["public"]["Enums"]["source_type"]
@@ -1221,6 +1370,7 @@ export type Database = {
             | Database["public"]["Enums"]["unplanned_reason"]
             | null
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -1231,10 +1381,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "trainings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "trainings_request_id_fkey"
             columns: ["request_id"]
             isOneToOne: false
             referencedRelation: "training_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trainings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1265,8 +1429,32 @@ export type Database = {
     }
     Functions: {
       actual_total: { Args: { p_training: string }; Returns: number }
+      add_employee_alias: {
+        Args: { p_alias: string; p_employee: string; p_reason: string }
+        Returns: undefined
+      }
+      add_expense: {
+        Args: {
+          p_amount: number
+          p_category: number
+          p_comment: string
+          p_currency: Database["public"]["Enums"]["currency_code"]
+          p_date: string
+          p_reason: string
+          p_training: string
+        }
+        Returns: string
+      }
+      add_participants: {
+        Args: { p_employees: string[]; p_reason?: string; p_training: string }
+        Returns: number
+      }
+      add_participants_by_unit: {
+        Args: { p_org_unit: number; p_reason?: string; p_training: string }
+        Returns: number
+      }
       app_role: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["app_role"]
       }
       approve_budget_version: {
@@ -1288,6 +1476,26 @@ export type Database = {
         Args: { p_from: number; p_reason: string }
         Returns: number
       }
+      create_employee: { Args: { p: Json; p_reason?: string }; Returns: string }
+      create_request: { Args: { p: Json; p_reason?: string }; Returns: string }
+      create_training: { Args: { p: Json; p_reason?: string }; Returns: string }
+      dearmor: { Args: { "": string }; Returns: string }
+      delete_session: {
+        Args: { p_reason: string; p_session: string }
+        Returns: undefined
+      }
+      dq_resolve: {
+        Args: { p_action: string; p_issue: number; p_reason?: string }
+        Returns: undefined
+      }
+      dq_scan: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          auto_fixed: number
+          opened: number
+          total_open: number
+        }[]
+      }
       employee_dossier: {
         Args: { p_employee: string }
         Returns: {
@@ -1305,6 +1513,26 @@ export type Database = {
           year: number
         }[]
       }
+      ensure_attendance_mode: {
+        Args: { p_training: string }
+        Returns: undefined
+      }
+      entity_audit: {
+        Args: { p_id: string; p_limit?: number; p_table: string }
+        Returns: {
+          action: string
+          at: string
+          changes: Json
+          id: number
+          new_row: Json
+          old_row: Json
+          reason: string
+          row_id: string
+          table_name: string
+          user_id: string
+          user_name: string
+        }[]
+      }
       feedback_summary: {
         Args: { p_feedback_training: string }
         Returns: {
@@ -1315,7 +1543,7 @@ export type Database = {
         }[]
       }
       financial_access_state: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["financial_access"]
       }
       fx_rate_on: {
@@ -1328,7 +1556,13 @@ export type Database = {
           rate_date: string
         }[]
       }
-      has_financial_access: { Args: never; Returns: boolean }
+      gen_random_uuid: { Args: Record<PropertyKey, never>; Returns: string }
+      gen_salt: { Args: { "": string }; Returns: string }
+      has_attendance: { Args: { p_training: string }; Returns: boolean }
+      has_financial_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_long_program: { Args: { p_training: string }; Returns: boolean }
       kpi_year: {
         Args: { p_year: number }
@@ -1349,10 +1583,41 @@ export type Database = {
           variance_tjs: number
         }[]
       }
+      link_request: {
+        Args: {
+          p_confirm?: boolean
+          p_reason?: string
+          p_request: string
+          p_source_type?: Database["public"]["Enums"]["source_type"]
+          p_training: string
+        }
+        Returns: undefined
+      }
       man_hours: { Args: { p_training: string }; Returns: number }
+      next_employee_code: { Args: Record<PropertyKey, never>; Returns: string }
+      next_request_code: { Args: { p_year: number }; Returns: string }
+      next_training_code: { Args: { p_year: number }; Returns: string }
+      norm_name: { Args: { p: string }; Returns: string }
       participants_count: { Args: { p_training: string }; Returns: number }
+      pgp_armor_headers: {
+        Args: { "": string }
+        Returns: Record<string, unknown>[]
+      }
       planned_total_tjs: { Args: { p_version: number }; Returns: number }
       planned_total_usd: { Args: { p_version: number }; Returns: number }
+      remove_employee_alias: {
+        Args: { p_alias: number; p_reason: string }
+        Returns: undefined
+      }
+      remove_participant: {
+        Args: { p_participant: string; p_reason: string }
+        Returns: undefined
+      }
+      req_reason: { Args: { p_reason: string }; Returns: string }
+      req_role: {
+        Args: { p_roles: Database["public"]["Enums"]["app_role"][] }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       reveal_respondent: {
         Args: { p_reason: string; p_response: string }
         Returns: {
@@ -1360,8 +1625,24 @@ export type Database = {
           respondent_raw: string
         }[]
       }
+      revert_change: {
+        Args: { p_audit_id: number; p_reason: string }
+        Returns: undefined
+      }
       saving_amount_tjs: { Args: { p_year: number }; Returns: number }
       saving_percent: { Args: { p_year: number }; Returns: number }
+      set_attendance: {
+        Args: { p_reason: string; p_updates: Json }
+        Returns: number
+      }
+      set_request_archived: {
+        Args: { p_archived: boolean; p_id: string; p_reason: string }
+        Returns: undefined
+      }
+      set_training_archived: {
+        Args: { p_archived: boolean; p_id: string; p_reason: string }
+        Returns: undefined
+      }
       unplanned_stats: {
         Args: { p_year: number }
         Returns: {
@@ -1373,6 +1654,31 @@ export type Database = {
           unplanned_training_count: number
         }[]
       }
+      update_employee: {
+        Args: { p_id: string; p_patch: Json; p_reason?: string }
+        Returns: undefined
+      }
+      update_expense: {
+        Args: { p_id: string; p_patch: Json; p_reason: string }
+        Returns: undefined
+      }
+      update_request: {
+        Args: { p_id: string; p_patch: Json; p_reason?: string }
+        Returns: undefined
+      }
+      update_training: {
+        Args: { p_id: string; p_patch: Json; p_reason?: string }
+        Returns: undefined
+      }
+      upsert_session: {
+        Args: {
+          p: Json
+          p_reason?: string
+          p_session: string
+          p_training: string
+        }
+        Returns: string
+      }
       utilization_percent: { Args: { p_year: number }; Returns: number }
       variance_tjs: { Args: { p_year: number }; Returns: number }
       void_expense: {
@@ -1382,6 +1688,7 @@ export type Database = {
     }
     Enums: {
       app_role: "ADMIN" | "ACADEMY_MANAGER" | "HR" | "FINANCE" | "VIEWER"
+      attendance_status: "PRESENT" | "ABSENT" | "EXCUSED"
       budget_status: "DRAFT" | "APPROVED" | "CANCELLED" | "ARCHIVED"
       currency_code: "TJS" | "USD" | "EUR" | "RUB" | "UZS" | "KZT"
       dq_severity: "CRITICAL" | "ERROR" | "WARNING" | "INFO"
@@ -1549,6 +1856,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["ADMIN", "ACADEMY_MANAGER", "HR", "FINANCE", "VIEWER"],
+      attendance_status: ["PRESENT", "ABSENT", "EXCUSED"],
       budget_status: ["DRAFT", "APPROVED", "CANCELLED", "ARCHIVED"],
       currency_code: ["TJS", "USD", "EUR", "RUB", "UZS", "KZT"],
       dq_severity: ["CRITICAL", "ERROR", "WARNING", "INFO"],
