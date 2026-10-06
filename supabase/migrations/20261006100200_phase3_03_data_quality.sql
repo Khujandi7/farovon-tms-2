@@ -152,6 +152,9 @@ begin
            resolved_at = case when dq_issues.status = 'FIXED' then null else dq_issues.resolved_at end,
            resolution  = case when dq_issues.status = 'FIXED' then null else dq_issues.resolution end
     where dq_issues.status in ('OPEN','IN_REVIEW','FIXED')
+      and (dq_issues.status = 'FIXED'
+           or (dq_issues.message, dq_issues.suggestion, dq_issues.details, dq_issues.severity)
+              is distinct from (excluded.message, excluded.suggestion, excluded.details, excluded.severity))
     returning (xmax = 0) as inserted
   ) select count(*) filter (where inserted)::int into n_new from up;
 

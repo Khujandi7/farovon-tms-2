@@ -288,6 +288,13 @@ select pg_temp.ok((select status from dq_issues where rule_code='TRAINING_NO_PAR
 select pg_temp.write_as('00000000-0000-0000-0000-00000000000e', $q$select update_training((select id from trainings where canonical_id='T-NOP'), '{"status":"PLANNED"}'::jsonb, 'Вернули в план')$q$);
 select pg_temp.ok(not exists(select 1 from dq_issues where rule_code='TRAINING_DONE_IN_FUTURE' and status='OPEN' and entity_id=(select id::text from trainings where canonical_id='T-NOP')), 'D9 нет ложных срабатываний');
 
+-- повторный скан без изменений не создаёт лишних записей аудита
+select pg_temp.write_as('00000000-0000-0000-0000-00000000000e', $q$select dq_scan()$q$);
+create temp table _a(n int);
+insert into _a select count(*) from audit_log where table_name='dq_issues';
+select pg_temp.write_as('00000000-0000-0000-0000-00000000000e', $q$select dq_scan()$q$);
+select pg_temp.ok((select count(*) from audit_log where table_name='dq_issues') = (select n from _a), 'D10 повторный скан без изменений не пишет в аудит');
+
 -- ====================== ИТОГ РЕГРЕССИИ ======================
 select pg_temp.ok(participants_count((select id from trainings where canonical_id='T-0007')) = 50
               and man_hours((select id from trainings where canonical_id='T-0007')) = 800
