@@ -33,10 +33,6 @@ export function resetStore() {
 }
 resetStore();
 
-const rules = {
-  ADMIN: { train: true, dq: true },
-  ACADEMY_MANAGER: { train: true, dq: true },
-};
 const REASON_FIELDS = ["status", "start_date", "end_date", "hours"];
 
 const pgErr = (res, status, code, message) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify({ code, message })); return true; };
