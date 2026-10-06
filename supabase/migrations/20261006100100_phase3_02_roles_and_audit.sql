@@ -74,7 +74,8 @@ begin
        or (p_table = 'trainings' and (
               (a.table_name in ('training_sessions','training_participants','training_trainers')
                  and coalesce(a.new_row, a.old_row)->>'training_id' = p_id::text)
-           or (a.table_name = 'expense_operations' and has_financial_access()
+           or (a.table_name = 'expense_operations'
+                 and app_role() = any ('{ADMIN,ACADEMY_MANAGER,FINANCE,VIEWER}'::app_role[])
                  and coalesce(a.new_row, a.old_row)->>'training_id' = p_id::text)
            or (a.table_name = 'session_attendance' and exists (
                  select 1 from training_participants tp
