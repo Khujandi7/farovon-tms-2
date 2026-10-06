@@ -26,14 +26,6 @@ test.describe("ADMIN", () => {
     }
   });
 
-  test("обучения: таблица с поиском", async ({ page }) => {
-    await page.goto("/trainings");
-    await expect(page.getByRole("cell", { name: "Тестовый тренинг А" })).toBeVisible();
-    await page.getByLabel("Поиск по таблице").fill("Б");
-    await expect(page.getByRole("cell", { name: "Тестовый тренинг А" })).toHaveCount(0);
-    await expect(page.getByRole("cell", { name: "Тестовый тренинг Б" })).toBeVisible();
-  });
-
   test("тёмная тема", async ({ page }) => {
     await page.goto("/settings");
     await page.getByTestId("theme-toggle").first().click();

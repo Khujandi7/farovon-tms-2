@@ -78,3 +78,10 @@
 - Supabase Auth: шаблоны Invite/Reset password с `/auth/confirm?token_hash=…` (docs/DEPLOYMENT.md, п. 8), Redirect URLs, SMTP, пароль ≥ 12, регистрация и anonymous OFF
 - Vercel: `SUPABASE_SERVICE_ROLE_KEY` (серверная переменная), `NEXT_PUBLIC_SITE_URL`
 - Известное ограничение: почтовые сканеры могут «открыть» ссылку и израсходовать одноразовый токен — тогда ADMIN отправляет приглашение/сброс повторно
+
+## Phase 3A — Trainings, Requests, Editing, Data Quality (ветка `phase-3-training-import`, 06.10.2026)
+Готово в коде и локальной БД: M10 модель обучения (заходы, участники, посещаемость), M11 роли и аудит с `reason`, M12 Data Quality,
+M13 RPC-процессы; страницы `/trainings`, `/trainings/[id]` (вкладки), `/trainings/new`, `/trainings/requests`, `/data-quality`,
+`/employees`, `/settings/references`. Миграции M10–M13 в Production **не применены**. Решения — D13.
+Осталось (Phase 3B): Google Sheets (service account, server-only), source_mappings/import_rows, dry-run/commit, сравнение Source/TMS
+(оставить TMS / применить из Sheets / сравнить), lineage, тесты импорта.

@@ -2,6 +2,7 @@
 // Данные вымышленные и помечены как тестовые; цифры KPI взяты из SQL-тестов Phase 1.5.
 import http from "node:http";
 import crypto from "node:crypto";
+import { handlePhase3 } from "./mock-phase3.mjs";
 
 export const PORT = Number(process.env.MOCK_SUPABASE_PORT ?? 54399);
 const SECRET = "e2e-only-secret";
@@ -20,6 +21,8 @@ const seed = (email, id, role, name, extra = {}) => {
 };
 seed("admin@test.local", "00000000-0000-4000-8000-00000000000a", "ADMIN", "Тестовый Админ");
 seed("hr@test.local", "00000000-0000-4000-8000-00000000000c", "HR", "Тестовый Кадровик");
+seed("manager@test.local", "00000000-0000-4000-8000-00000000000b", "ACADEMY_MANAGER", "Тестовый Менеджер");
+seed("finance@test.local", "00000000-0000-4000-8000-00000000000e", "FINANCE", "Тестовый Финансист");
 seed("viewer@test.local", "00000000-0000-4000-8000-00000000000d", "VIEWER", "Тестовый Наблюдатель");
 seed("norole@test.local", "00000000-0000-4000-8000-0000000000ff", null, "Без роли");
 
@@ -194,12 +197,15 @@ export const createMockServer = () => http.createServer(async (req, res) => {
     }
   }
 
+  if (url.pathname === "/__mock/reset" || url.pathname === "/__mock/audit") return handlePhase3(req, res, url, body, null, null);
+
   // ---- PostgREST: всё ниже требует вошедшего пользователя ----
   if (url.pathname.startsWith("/rest/v1/")) {
     if (!entry) return send(res, 401, { message: "JWT expired" });
     const [, u] = entry;
     const role = appRole(u);
     if (url.pathname === "/rest/v1/rpc/app_role") return send(res, 200, role);
+    if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3(req, res, url, body, role, u)) return;
     if (url.pathname === "/rest/v1/rpc/kpi_year") return send(res, 200, [kpi(role === "HR")]);
     if (url.pathname === "/rest/v1/trainings") return send(res, 200, trainings);
     if (url.pathname === "/rest/v1/profiles") {
