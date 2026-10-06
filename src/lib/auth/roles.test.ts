@@ -28,7 +28,7 @@ describe("роли", () => {
 
   it("права на запись повторяют RLS", () => {
     expect(canWrite("FINANCE", "expenses")).toBe(true);
-    expect(canWrite("ACADEMY_MANAGER", "expenses")).toBe(false);
+    expect(canWrite("ACADEMY_MANAGER", "expenses")).toBe(true);
     expect(canWrite("HR", "employees")).toBe(true);
     expect(canWrite("VIEWER", "trainings")).toBe(false);
     expect(canWrite("ACADEMY_MANAGER", "users")).toBe(false);

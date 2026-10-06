@@ -56,7 +56,7 @@ export const WRITE_ACCESS = {
   trainings: ["ADMIN", "ACADEMY_MANAGER"],
   employees: ["ADMIN", "ACADEMY_MANAGER", "HR"],
   budget: ["ADMIN", "FINANCE"],
-  expenses: ["ADMIN", "FINANCE"],
+  expenses: ["ADMIN", "ACADEMY_MANAGER", "FINANCE"],
   users: ["ADMIN"],
 } as const satisfies Record<string, readonly AppRole[]>;
 

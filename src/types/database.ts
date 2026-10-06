@@ -1,6 +1,6 @@
 // FAROVON TMS 2.0 — типы БД. База: Production после Phase 1.5 M8 + локально применённые миграции Phase 3A (M10–M13).
 // ВНИМАНИЕ: M10–M13 НЕ применены в Production (ждут отдельного подтверждения). После их применения перегенерировать из Supabase.
-// Сгенерировано @supabase/postgres-meta по локальной БД (supabase/tests/run_local.sh); структура Phase 1–2.2 совпадает с Production.
+// Сгенерировано @supabase/postgres-meta по локальной БД (scripts/gen-types-local.mjs); структура Phase 1–2.2 совпадает с Production.
 // НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.
 export type Json =
   | string
@@ -527,6 +527,13 @@ export type Database = {
             referencedRelation: "v_training_financials"
             referencedColumns: ["training_id"]
           },
+          {
+            foreignKeyName: "expense_operations_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
         ]
       }
       feedback_answers: {
@@ -671,6 +678,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_training_financials"
             referencedColumns: ["training_id"]
+          },
+          {
+            foreignKeyName: "feedback_trainings_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1042,6 +1056,13 @@ export type Database = {
             referencedRelation: "v_training_financials"
             referencedColumns: ["training_id"]
           },
+          {
+            foreignKeyName: "training_participants_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
         ]
       }
       training_requests: {
@@ -1245,6 +1266,13 @@ export type Database = {
             referencedRelation: "v_training_financials"
             referencedColumns: ["training_id"]
           },
+          {
+            foreignKeyName: "training_sessions_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
         ]
       }
       training_trainers: {
@@ -1281,6 +1309,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_training_financials"
             referencedColumns: ["training_id"]
+          },
+          {
+            foreignKeyName: "training_trainers_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1425,6 +1460,80 @@ export type Database = {
           training_id: string | null
         }
         Relationships: []
+      }
+      v_training_list: {
+        Row: {
+          actual_tjs: number | null
+          archived_at: string | null
+          attendance_mode: boolean | null
+          canonical_id: string | null
+          end_date: string | null
+          format: Database["public"]["Enums"]["training_format"] | null
+          hours: number | null
+          id: string | null
+          kind: Database["public"]["Enums"]["training_kind"] | null
+          location: string | null
+          man_hours: number | null
+          participants: number | null
+          participants_planned: number | null
+          request_id: string | null
+          source_confirmed: boolean | null
+          source_type: Database["public"]["Enums"]["source_type"] | null
+          start_date: string | null
+          status: Database["public"]["Enums"]["training_status"] | null
+          title: string | null
+        }
+        Insert: {
+          actual_tjs?: never
+          archived_at?: string | null
+          attendance_mode?: never
+          canonical_id?: string | null
+          end_date?: string | null
+          format?: Database["public"]["Enums"]["training_format"] | null
+          hours?: number | null
+          id?: string | null
+          kind?: Database["public"]["Enums"]["training_kind"] | null
+          location?: string | null
+          man_hours?: never
+          participants?: never
+          participants_planned?: number | null
+          request_id?: string | null
+          source_confirmed?: boolean | null
+          source_type?: Database["public"]["Enums"]["source_type"] | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["training_status"] | null
+          title?: string | null
+        }
+        Update: {
+          actual_tjs?: never
+          archived_at?: string | null
+          attendance_mode?: never
+          canonical_id?: string | null
+          end_date?: string | null
+          format?: Database["public"]["Enums"]["training_format"] | null
+          hours?: number | null
+          id?: string | null
+          kind?: Database["public"]["Enums"]["training_kind"] | null
+          location?: string | null
+          man_hours?: never
+          participants?: never
+          participants_planned?: number | null
+          request_id?: string | null
+          source_confirmed?: boolean | null
+          source_type?: Database["public"]["Enums"]["source_type"] | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["training_status"] | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trainings_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "training_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {

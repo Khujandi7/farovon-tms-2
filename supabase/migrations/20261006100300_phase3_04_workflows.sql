@@ -629,3 +629,16 @@ do $$ declare f text; begin
     execute format('grant execute on function %s to authenticated', f);
   end loop;
 end $$;
+
+-- ---------- Представления для интерфейса ----------
+-- Список тренингов с расчётами из БД (интерфейс ничего не считает). Финансы: NULL без доступа (actual_total).
+create view v_training_list with (security_invoker = true) as
+select t.id, t.canonical_id, t.title, t.format, t.kind, t.status, t.source_type, t.source_confirmed, t.hours,
+       t.start_date, t.end_date, t.location, t.request_id, t.archived_at, t.participants_planned,
+       participants_count(t.id) as participants,
+       man_hours(t.id) as man_hours,
+       actual_total(t.id) as actual_tjs,
+       has_attendance(t.id) as attendance_mode
+  from trainings t;
+revoke all on v_training_list from anon;
+grant select on v_training_list to authenticated;

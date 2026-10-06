@@ -8,3 +8,4 @@ drop function if exists revert_change(bigint, text), remove_employee_alias(bigin
   set_training_archived(uuid, boolean, text), link_request(uuid, uuid, source_type, boolean, text),
   update_training(uuid, jsonb, text), create_training(jsonb, text),
   next_employee_code(), next_request_code(integer), norm_name(text);
+drop view if exists v_training_list;
