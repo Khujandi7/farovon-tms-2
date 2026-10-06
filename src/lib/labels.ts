@@ -30,3 +30,126 @@ export const TRAINING_FORMAT_LABELS: Record<Enums["training_format"], string> = 
   OFFLINE: "Очно",
   BLENDED: "Смешанный",
 };
+
+export const TRAINING_KIND_LABELS: Record<Enums["training_kind"], string> = {
+  INTERNAL: "Внутреннее",
+  EXTERNAL: "Внешнее",
+  UNSPECIFIED: "Не указано",
+};
+
+export const REQUEST_STATUS_LABELS: Record<Enums["request_status"], string> = {
+  NEW: "Новая",
+  REVIEW: "На рассмотрении",
+  APPROVED: "Одобрена",
+  REJECTED: "Отклонена",
+  PLANNED: "В плане",
+  DONE: "Выполнена",
+  CARRIED_FORWARD: "Перенесена",
+};
+
+export const REQUEST_STATUS_VARIANT: Record<Enums["request_status"], "success" | "brand" | "secondary" | "warning" | "outline"> = {
+  NEW: "secondary",
+  REVIEW: "warning",
+  APPROVED: "brand",
+  REJECTED: "outline",
+  PLANNED: "brand",
+  DONE: "success",
+  CARRIED_FORWARD: "warning",
+};
+
+export const UNPLANNED_REASON_LABELS: Record<Enums["unplanned_reason"], string> = {
+  URGENT_BUSINESS_NEED: "Срочная потребность бизнеса",
+  MANAGEMENT_REQUEST: "Поручение руководства",
+  LEGAL_REQUIREMENT: "Требование законодательства",
+  NEW_PROJECT: "Новый проект",
+  EMPLOYEE_NEED: "Потребность сотрудника",
+  EXTERNAL_OPPORTUNITY: "Внешняя возможность",
+  OTHER: "Другое",
+};
+
+export const ATTENDANCE_LABELS: Record<Enums["attendance_status"], string> = {
+  PRESENT: "Присутствовал",
+  ABSENT: "Отсутствовал",
+  EXCUSED: "Уважительная причина",
+};
+
+export const DQ_SEVERITY_LABELS: Record<Enums["dq_severity"], string> = {
+  CRITICAL: "Критично",
+  ERROR: "Ошибка",
+  WARNING: "Предупреждение",
+  INFO: "Сведения",
+};
+
+export const DQ_SEVERITY_VARIANT: Record<Enums["dq_severity"], "success" | "brand" | "secondary" | "warning" | "outline" | "default"> = {
+  CRITICAL: "default",
+  ERROR: "brand",
+  WARNING: "warning",
+  INFO: "secondary",
+};
+
+export const DQ_STATUS_LABELS: Record<string, string> = {
+  OPEN: "Открыто",
+  IN_REVIEW: "На проверке",
+  CONFIRMED_OK: "Подтверждено как есть",
+  FIXED: "Исправлено",
+  IGNORED: "Игнорируется",
+};
+
+export const AUDIT_TABLE_LABELS: Record<string, string> = {
+  trainings: "Тренинг",
+  training_sessions: "Заход",
+  training_participants: "Участник",
+  session_attendance: "Посещаемость",
+  expense_operations: "Расход",
+  training_requests: "Заявка",
+  employees: "Сотрудник",
+  employee_aliases: "Написание ФИО",
+  training_trainers: "Тренер тренинга",
+};
+
+export const FIELD_LABELS: Record<string, string> = {
+  title: "Название",
+  format: "Формат",
+  kind: "Тип",
+  location: "Место",
+  hours: "Часы",
+  start_date: "Начало",
+  end_date: "Окончание",
+  status: "Статус",
+  source_type: "Источник",
+  request_id: "Заявка",
+  unplanned_reason: "Причина внепланового",
+  comment: "Комментарий",
+  description: "Описание",
+  participants_planned: "Участников по плану",
+  archived_at: "Архив",
+  archive_reason: "Причина архива",
+  amount: "Сумма",
+  currency: "Валюта",
+  amount_tjs: "Сумма, TJS",
+  fx_rate: "Курс",
+  operation_date: "Дата операции",
+  category_id: "Статья",
+  voided_at: "Сторно",
+  void_reason: "Причина сторно",
+  topic: "Тема",
+  plan_year: "Год плана",
+  budget_amount: "Бюджет",
+  budget_currency: "Валюта бюджета",
+  carry_forward: "Перенос",
+  session_no: "№ захода",
+  session_id: "Заход",
+  attended: "Участвовал",
+  employee_id: "Сотрудник",
+  full_name: "ФИО",
+  position: "Должность",
+  is_active: "Активен",
+  department_id: "Департамент",
+  unit_id: "Отдел",
+};
+
+export const TRAINING_STATUS_OPTIONS = (Object.keys(TRAINING_STATUS_LABELS) as Enums["training_status"][]).map((v) => ({ value: v, label: TRAINING_STATUS_LABELS[v] }));
+export const TRAINING_FORMAT_OPTIONS = (Object.keys(TRAINING_FORMAT_LABELS) as Enums["training_format"][]).map((v) => ({ value: v, label: TRAINING_FORMAT_LABELS[v] }));
+export const TRAINING_KIND_OPTIONS = (Object.keys(TRAINING_KIND_LABELS) as Enums["training_kind"][]).map((v) => ({ value: v, label: TRAINING_KIND_LABELS[v] }));
+export const REQUEST_STATUS_OPTIONS = (Object.keys(REQUEST_STATUS_LABELS) as Enums["request_status"][]).map((v) => ({ value: v, label: REQUEST_STATUS_LABELS[v] }));
+export const UNPLANNED_REASON_OPTIONS = [{ value: "", label: "— не указана —" }, ...(Object.keys(UNPLANNED_REASON_LABELS) as Enums["unplanned_reason"][]).map((v) => ({ value: v, label: UNPLANNED_REASON_LABELS[v] }))];

@@ -73,3 +73,12 @@ Vitest, сборку, Playwright и SQL-тесты; секреты для CI н�
 5. Предпросмотры (Preview) создаются для каждого PR автоматически.
 
 Не храните ключи в репозитории: `.env*` в `.gitignore`, кроме `.env.example`.
+
+## 5. Phase 3A: миграции M10–M13 (в Production НЕ применены)
+Файлы: `20261006100000_phase3_01_training_model.sql`, `…100100_phase3_02_roles_and_audit.sql`, `…100200_phase3_03_data_quality.sql`,
+`…100300_phase3_04_workflows.sql`. Применять только после явного подтверждения владельца и после мержа PR:
+1. Сделать резервную копию Production (Dashboard → Database → Backups).
+2. Применить миграции по порядку (`supabase db push` или SQL Editor); затем `select count(*) from dq_issues;` и `select dq_scan();` под ADMIN.
+3. Проверить: `/trainings`, карточка, `/data-quality`, `/employees`, `/settings/references`.
+Откат: `supabase/rollback/rollback_13_…` → `rollback_10_…` в обратном порядке (проверено `verify_rollback.sh`: отпечаток равен Phase 1).
+Права `ACADEMY_MANAGER`/`HR`/`FINANCE` выдаёт ADMIN в `/settings/users`.
