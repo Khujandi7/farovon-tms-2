@@ -14,7 +14,7 @@ echo "$stub" | $PR
 for f in "$DIR"/migrations/2026100409*.sql; do $PR -f "$f"; done
 before=$(psql -U postgres -d tms_rb -At -F ' | ' -f "$DIR/tests/fingerprint.sql")
 for f in "$DIR"/migrations/*.sql; do case "$(basename $f)" in 2026100409*) continue;; esac; $PR -f "$f"; done
-for f in $(ls "$DIR"/rollback/rollback_0*.sql | sort -r); do echo "rollback: $(basename $f)"; $PR -f "$f"; done
+for f in $(ls "$DIR"/rollback/rollback_[01]*.sql | sort -r); do echo "rollback: $(basename $f)"; $PR -f "$f"; done
 after=$(psql -U postgres -d tms_rb -At -F ' | ' -f "$DIR/tests/fingerprint.sql")
 if [ "$before" == "$after" ]; then echo "ОТКАТ OK: отпечаток после отката равен отпечатку Phase 1"; else
   echo "РАСХОЖДЕНИЕ:"; diff <(echo "$before") <(echo "$after"); exit 1; fi
