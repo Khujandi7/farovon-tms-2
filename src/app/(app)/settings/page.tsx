@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Users } from "lucide-react";
+import { Building2, Users } from "lucide-react";
 import { SectionPage } from "@/components/common/section-page";
 import { ThemeToggle } from "@/components/common/theme-toggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { Button } from "@/components/ui/button";
 import { ROLE_LABELS, canWrite } from "@/lib/auth/roles";
+import { can } from "@/lib/workflows/roles";
 
 export const metadata: Metadata = { title: "Настройки" };
 
@@ -43,6 +44,21 @@ export default function SettingsPage() {
                 <Button asChild variant="outline">
                   <Link href="/settings/users">
                     <Users /> Управление пользователями
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          {can(session.role, "references") && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Справочники</CardTitle>
+                <CardDescription>Департаменты и отделы организации.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="outline">
+                  <Link href="/settings/references">
+                    <Building2 /> Подразделения
                   </Link>
                 </Button>
               </CardContent>
