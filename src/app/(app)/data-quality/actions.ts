@@ -12,7 +12,11 @@ export async function runDqScan(): Promise<Result<{ opened: number; autoFixed: n
   if (!actor.ok) return actor;
   const res = await callRpc("dq_scan", {});
   if (!res.ok) return res;
-  const row = Array.isArray(res.data) ? res.data[0] : undefined;
+  // Сквозные правила жизненного цикла (M21) пишут в те же dq_issues; итог берём из второго прохода.
+  const life = await callRpc("dq_scan_lifecycle", {});
+  const base = Array.isArray(res.data) ? res.data[0] : undefined;
+  const extra = life.ok && Array.isArray(life.data) ? life.data[0] : undefined;
+  const row = base && extra ? { opened: base.opened + extra.opened, auto_fixed: base.auto_fixed + extra.auto_fixed, total_open: extra.total_open } : base;
   revalidatePath("/data-quality");
   return {
     ok: true,

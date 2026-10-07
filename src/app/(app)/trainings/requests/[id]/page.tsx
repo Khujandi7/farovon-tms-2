@@ -5,6 +5,7 @@ import { ErrorState, ForbiddenState } from "@/components/common/states";
 import { ArchiveButton } from "@/components/trainings/archive-button";
 import { AuditTimeline } from "@/components/trainings/audit-timeline";
 import { LinkTrainingPanel } from "@/components/trainings/link-training-panel";
+import { RequestLifecyclePanel } from "@/components/trainings/request-lifecycle-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditableField } from "@/components/workflow/editable-field";
@@ -108,6 +109,22 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
           </CardContent>
         </Card>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Приоритет и обучение</CardTitle>
+          <CardDescription>Из утверждённой заявки обучение создаётся без повторного ввода; связь «заявка ↔ обучение» сохраняется.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RequestLifecyclePanel
+            requestId={id}
+            status={r.status}
+            priority={(r.priority ?? "NORMAL") as import("@/components/trainings/request-lifecycle-panel").Priority}
+            expectedResult={r.expected_result ?? null}
+            canEdit={canEdit}
+            hasTraining={(linked ?? []).length > 0}
+          />
+        </CardContent>
+      </Card>
       <section aria-labelledby="req-history" className="space-y-3">
         <h2 id="req-history" className="text-base font-semibold">История изменений</h2>
         {audit.error ? <ErrorState className="bg-card" title="Не удалось загрузить историю" /> : <AuditTimeline rows={rows} lookup={lookup} role={session.role} entityPath={`/trainings/requests/${id}`} />}

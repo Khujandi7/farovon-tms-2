@@ -154,4 +154,15 @@ describe("уведомления и поиск", () => {
     expect(g.map((x) => x.kind)).toEqual(["EMPLOYEE", "TRAINING"]);
     expect(flattenGroups(g)).toHaveLength(2);
   });
+  it("поиск показывает тренеров и документы после основных групп", () => {
+    const rows = [
+      { kind: "DOCUMENT", id: "d", title: "Программа", subtitle: "", href: "/trainings/1?tab=documents" },
+      { kind: "TRAINER", id: "t", title: "Алиев", subtitle: "", href: "/trainers/t" },
+      { kind: "CERTIFICATE", id: "c", title: "Сертификат", subtitle: "", href: "/employees/1?tab=certificates" },
+      { kind: "EMPLOYEE", id: "e", title: "Алиев А.", subtitle: "", href: "/employees/1" },
+    ];
+    const g = groupSearchRows(rows);
+    expect(g.map((x) => x.kind)).toEqual(["EMPLOYEE", "CERTIFICATE", "TRAINER", "DOCUMENT"]);
+    expect(g.map((x) => x.label)).toEqual(["Сотрудники", "Сертификаты", "Тренеры", "Документы"]);
+  });
 });

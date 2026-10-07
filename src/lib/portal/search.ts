@@ -7,8 +7,10 @@ export const SEARCH_KIND_LABELS: Record<string, string> = {
   EXAM: "Экзамены",
   CERTIFICATE: "Сертификаты",
   CONTRACT: "Договоры",
+  TRAINER: "Тренеры",
+  DOCUMENT: "Документы",
 };
-const ORDER = ["EMPLOYEE", "TRAINING", "REQUEST", "EXAM", "CERTIFICATE", "CONTRACT"];
+const ORDER = ["EMPLOYEE", "TRAINING", "REQUEST", "EXAM", "CERTIFICATE", "CONTRACT", "TRAINER", "DOCUMENT"];
 
 export type SearchGroup = { kind: string; label: string; rows: SearchRow[] };
 
