@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarCheck, Clock, Coins, History, Users } from "lucide-react";
+import { CalendarCheck, Clock, Coins, History, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { ErrorState, ForbiddenState } from "@/components/common/states";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +85,9 @@ export default async function TrainingPage({ params, searchParams }: { params: P
     <div className="space-y-5">
       <PageHeader
         title={t.title}
+        breadcrumbs={[{ label: "Обучения", href: "/trainings" }, { label: t.canonical_id }]}
+        backHref="/trainings"
+        backLabel="К списку обучений"
         description={`${t.canonical_id} · ${formatDateRange(t.start_date, t.end_date)}`}
         actions={
           <>
@@ -124,9 +127,6 @@ export default async function TrainingPage({ params, searchParams }: { params: P
       {tab === "attendance" && <AttendanceTab id={id} canEdit={can(role, "attendance")} archived={archived} attendanceMode={v.attendance_mode ?? false} />}
       {tab === "expenses" && <ExpensesTab id={id} role={role} archived={archived} total={v.actual_tjs} perParticipant={perParticipant === null || perParticipant === undefined ? null : Number(perParticipant)} />}
       {tab === "audit" && <AuditTab id={id} role={role} />}
-      <Link href="/trainings" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" aria-hidden="true" /> К списку обучений
-      </Link>
     </div>
   );
 }

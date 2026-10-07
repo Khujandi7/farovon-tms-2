@@ -63,6 +63,7 @@ describe("токен, код заявки, варианты формы", () => {
   });
   it("код заявки REQ-YYYY-NNNN", () => {
     expect(parseRequestCode({ code: "REQ-2026-0042" })).toBe("REQ-2026-0042");
+    expect(parseRequestCode({ code: "REQ-2026-007" })).toBe("REQ-2026-007");
     expect(parseRequestCode({ code: "x" })).toBeNull();
     expect(parseRequestCode(null)).toBeNull();
   });
@@ -89,8 +90,8 @@ describe("client_hash (HMAC-SHA256)", () => {
     expect(pickClientIp(null, null)).toBe("unknown");
   });
   it("секрет: свой, затем производный от service_role, затем dev-значение", () => {
-    expect(resolveHashSecret({ PUBLIC_REQUEST_HASH_SECRET: "x".repeat(20), SUPABASE_SERVICE_ROLE_KEY: "k" })).toBe("x".repeat(20));
-    const derived = resolveHashSecret({ SUPABASE_SERVICE_ROLE_KEY: "service-key" });
+    expect(resolveHashSecret({ PUBLIC_REQUEST_HASH_SECRET: "x".repeat(20), DERIVE_FROM: "k" })).toBe("x".repeat(20));
+    const derived = resolveHashSecret({ DERIVE_FROM: "service-key" });
     expect(derived).toMatch(/^[0-9a-f]{64}$/);
     expect(derived).not.toContain("service-key");
     expect(resolveHashSecret({ PUBLIC_REQUEST_HASH_SECRET: "short" })).toBe(resolveHashSecret({}));

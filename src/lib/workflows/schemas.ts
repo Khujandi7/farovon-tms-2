@@ -134,7 +134,13 @@ export const EMPLOYEE_FIELDS = {
   department_id: REQUEST_FIELDS.department_id,
   unit_id: REQUEST_FIELDS.unit_id,
   is_active: z.coerce.boolean(),
+  employee_code: optText(50),
+  hire_date: isoDate.nullish().transform((v) => v || null),
+  termination_date: isoDate.nullish().transform((v) => v || null),
+  phone: optText(50),
+  email: z.string().trim().max(200).email({ message: "Некорректный e-mail" }).nullish().or(z.literal("")).transform((v) => v || null),
 } as const;
+export const EMPLOYEE_REASON_FIELDS = ["is_active", "employee_code", "termination_date"] as const;
 export type EmployeeField = keyof typeof EMPLOYEE_FIELDS;
 
 export const sessionSchema = z

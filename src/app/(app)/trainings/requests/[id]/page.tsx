@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { ErrorState, ForbiddenState } from "@/components/common/states";
 import { ArchiveButton } from "@/components/trainings/archive-button";
@@ -48,6 +46,9 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
     <div className="space-y-5">
       <PageHeader
         title={r.topic}
+        breadcrumbs={[{ label: "Обучения", href: "/trainings" }, { label: "Заявки", href: "/trainings/requests" }, { label: r.canonical_id }]}
+        backHref="/trainings/requests"
+        backLabel="К заявкам"
         description={`${r.canonical_id} · план ${r.plan_year}`}
         actions={
           <>
@@ -111,9 +112,6 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
         <h2 id="req-history" className="text-base font-semibold">История изменений</h2>
         {audit.error ? <ErrorState className="bg-card" title="Не удалось загрузить историю" /> : <AuditTimeline rows={rows} lookup={lookup} role={session.role} entityPath={`/trainings/requests/${id}`} />}
       </section>
-      <Link href="/trainings/requests" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" aria-hidden="true" /> К заявкам
-      </Link>
     </div>
   );
 }

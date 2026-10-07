@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { ForbiddenState } from "@/components/common/states";
 import { TrainingForm } from "@/components/trainings/training-form";
@@ -31,11 +29,8 @@ export default async function NewTrainingPage() {
   }
   return (
     <div className="space-y-6">
-      <PageHeader title="Новый тренинг" description="Код присваивается автоматически (TR-год-номер). Остальное можно уточнить в карточке." />
+      <PageHeader breadcrumbs={[{ label: "Обучения", href: "/trainings" }, { label: "Новое" }]} backHref="/trainings" backLabel="К списку обучений" title="Новый тренинг" description="Код присваивается автоматически (TR-год-номер). Остальное можно уточнить в карточке." />
       {allowed ? <TrainingForm requests={requests} eventTypes={eventTypes} providers={providers} /> : <ForbiddenState className="bg-card" title="Нет права создавать тренинги" description="Создавать тренинги могут администратор и менеджер академии." />}
-      <Link href="/trainings" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" aria-hidden="true" /> К списку обучений
-      </Link>
     </div>
   );
 }

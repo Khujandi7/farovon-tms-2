@@ -64,8 +64,8 @@ export function isValidTokenFormat(token: unknown): token is string {
   return typeof token === "string" && TOKEN_RE.test(token);
 }
 
-/** Код заявки REQ-YYYY-NNNN. */
-export const REQUEST_CODE_RE = /^REQ-\d{4}-\d{4,}$/;
+/** Код заявки REQ-YYYY-NNN… (next_request_code даёт не меньше трёх цифр). */
+export const REQUEST_CODE_RE = /^REQ-\d{4}-\d{3,}$/;
 export function parseRequestCode(data: unknown): string | null {
   const code = data && typeof data === "object" && "code" in data ? (data as { code: unknown }).code : null;
   return typeof code === "string" && REQUEST_CODE_RE.test(code) ? code : null;

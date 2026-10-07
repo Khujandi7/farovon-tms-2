@@ -24,7 +24,7 @@ test.describe("список обучений", () => {
     await expect(page.getByText("Охрана труда").first()).toBeVisible();
     await expect(page.getByText("Архивный курс")).toHaveCount(0);
 
-    await page.getByLabel("Поиск").fill("Охрана");
+    await page.getByLabel("Поиск", { exact: true }).fill("Охрана");
     await page.getByRole("button", { name: "Применить" }).click();
     await expect(page).toHaveURL(/q=/);
     await expect(page.getByText("Лидерство для руководителей")).toHaveCount(0);
@@ -56,7 +56,7 @@ test.describe("карточка тренинга: inline-редактирова�
 
     // существенное поле: без причины — ошибка, с причиной — сохранено
     await openField(page, "Статус");
-    await page.getByLabel("Статус", { exact: true }).selectOption("CANCELLED");
+    await page.getByLabel("Статус", { exact: true }).selectOption("IN_PROGRESS");
     await page.getByRole("button", { name: "Сохранить" }).click();
     await expect(page.getByText(/Укажите причину/).first()).toBeVisible();
     await page.getByLabel(/Причина изменения/).fill("Тренер заболел, перенос");

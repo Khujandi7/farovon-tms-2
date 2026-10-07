@@ -86,6 +86,13 @@ function subjectOf(row: AuditRow, lookup: AuditLookup): string {
       return String(r.canonical_id ?? r.topic ?? "Заявка");
     case "employee_aliases":
       return String(r.alias_norm ?? "написание");
+    case "exams":
+      return `${r.canonical_id ?? "Экзамен"}${r.attempt_no ? ` · попытка ${r.attempt_no}` : ""}`;
+    case "certificates":
+    case "documents":
+      return String(r.name ?? r.title ?? r.file_name ?? AUDIT_TABLE_LABELS[row.table_name]);
+    case "learning_agreements":
+      return String(r.canonical_id ?? "Соглашение");
     default:
       return AUDIT_TABLE_LABELS[row.table_name] ?? row.table_name;
   }

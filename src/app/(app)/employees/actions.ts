@@ -5,7 +5,7 @@ import { z } from "zod";
 import { callRpc, fail, requireRole, type Result } from "@/lib/workflows/server";
 import { WF_ROLES } from "@/lib/workflows/roles";
 import { WF_ERR } from "@/lib/workflows/errors";
-import { EMPLOYEE_FIELDS, fieldErrorsFrom, optReason, reason, uuid, type EmployeeField } from "@/lib/workflows/schemas";
+import { EMPLOYEE_FIELDS, EMPLOYEE_REASON_FIELDS, fieldErrorsFrom, optReason, reason, uuid, type EmployeeField } from "@/lib/workflows/schemas";
 import type { Json } from "@/types/database";
 
 const refresh = (id?: string) => {
@@ -42,7 +42,7 @@ export async function updateEmployeeField(input: { id: string; field: string; va
   const field = input.field as EmployeeField;
   const parsed = EMPLOYEE_FIELDS[field].safeParse(input.value);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? WF_ERR.invalid, { value: parsed.error.issues[0]?.message });
-  const r = field === "is_active" ? reason.safeParse(input.reason) : optReason.safeParse(input.reason);
+  const r = (EMPLOYEE_REASON_FIELDS as readonly string[]).includes(field) ? reason.safeParse(input.reason) : optReason.safeParse(input.reason);
   if (!r.success) return fail(r.error.issues[0]?.message ?? WF_ERR.reason, { reason: r.error.issues[0]?.message });
   const res = await callRpc("update_employee", { p_id: id.data, p_patch: { [field]: parsed.data } as unknown as Json, p_reason: r.data ?? undefined });
   if (!res.ok) return res;

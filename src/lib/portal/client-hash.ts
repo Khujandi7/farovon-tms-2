@@ -18,10 +18,10 @@ export function pickClientIp(forwardedFor: string | null | undefined, realIp: st
  * Секрет хэширования. Порядок: PUBLIC_REQUEST_HASH_SECRET → производный от ключа service_role (уже секретный, на сервере) →
  * фиксированная строка для локальной разработки. Производный ключ получаем HMAC-ом с меткой, сам ключ наружу не уходит.
  */
-export function resolveHashSecret(env: { PUBLIC_REQUEST_HASH_SECRET?: string; SUPABASE_SERVICE_ROLE_KEY?: string }): string {
+export function resolveHashSecret(env: { PUBLIC_REQUEST_HASH_SECRET?: string; DERIVE_FROM?: string }): string {
   const own = env.PUBLIC_REQUEST_HASH_SECRET?.trim();
   if (own && own.length >= 16) return own;
-  const svc = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const svc = env.DERIVE_FROM?.trim();
   if (svc) return createHmac("sha256", svc).update("farovon-public-request-client-hash").digest("hex");
   return "farovon-tms-dev-only-client-hash-secret";
 }

@@ -2,7 +2,8 @@
 
 import { headers } from "next/headers";
 import { fieldErrorsFrom } from "@/lib/users/schemas";
-import { computeClientHash, pickClientIp, resolveHashSecret } from "@/lib/portal/client-hash";
+import { computeClientHash, pickClientIp } from "@/lib/portal/client-hash";
+import { getPublicRequestHashSecret } from "@/lib/env.server";
 import { verifyCaptcha } from "@/lib/portal/captcha";
 import { MAX_PAYLOAD_CHARS, isValidTokenFormat, parseRequestCode, publicSubmitSchema } from "@/lib/portal/schemas";
 import { callSubmitPublicRequest } from "@/lib/supabase/service-rpc";
@@ -44,7 +45,7 @@ export async function submitPublicRequest(input: { token: string | null; values:
   const captcha = await verifyCaptcha(captcha_token, ip);
   if (!captcha.ok) return { ok: false, kind: "error", error: "Не удалось подтвердить, что вы не робот. Обновите страницу." };
 
-  const hash = computeClientHash(ip, h.get("user-agent") ?? "", resolveHashSecret({ PUBLIC_REQUEST_HASH_SECRET: process.env.PUBLIC_REQUEST_HASH_SECRET, SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY }));
+  const hash = computeClientHash(ip, h.get("user-agent") ?? "", getPublicRequestHashSecret());
   const res = await callSubmitPublicRequest(token, values as unknown as Json, hash);
   if (res.ok) return { ok: true, code: parseRequestCode(res.data) };
 
