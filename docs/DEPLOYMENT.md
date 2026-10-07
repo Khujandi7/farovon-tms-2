@@ -91,9 +91,8 @@ Vitest, сборку, Playwright и SQL-тесты; секреты для CI н�
 Порядок (каждый шаг — отдельной транзакцией, после резервной копии):
 1. Backup: Dashboard → Database → Backups (или `pg_dump`).
 2. M10–M13 (раздел 5), затем проверка `/trainings` и `/trainings/requests` под ADMIN — ошибка «Не удалось загрузить» должна исчезнуть.
-3. M14 `20261007100000_phase3a1_01_learning_events.sql` — ВНИМАНИЕ: `alter type training_status add value` нельзя выполнять внутри
-   транзакции вместе с использованием новых значений; `supabase db push` применяет файл корректно (значения добавляются до использования).
-   В SQL Editor выполните сначала три строки `alter type …`, затем остальной файл.
+3. M14 `20261007100000_phase3a1_01_learning_events.sql` (новые значения статусов добавляются `alter type … add value`; проверено,
+   что каждый файл M14–M20 применяется одной транзакцией, как это делает `supabase db push`).
 4. M15 `…100100_phase3a1_02_employees_org.sql`, M16 `…100200_phase3a1_03_dossier_core.sql` (создаёт приватный бакет Storage `tms-documents`
    (20 МБ, pdf/png/jpg/docx/xlsx/csv) и политики `storage.objects`; проверьте в Dashboard → Storage, что бакет приватный),
    M17 `…100300_phase3a1_04_funding.sql`, M18 `…100400_phase3a1_05_dossier_dq.sql`, M19 `…100500_phase3a1_06_public_requests.sql`,
