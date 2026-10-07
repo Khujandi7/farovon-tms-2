@@ -85,3 +85,13 @@ M13 RPC-процессы; страницы `/trainings`, `/trainings/[id]` (вк
 `/employees`, `/settings/references`. Миграции M10–M13 в Production **не применены**. Решения — D13.
 Осталось (Phase 3B): Google Sheets (service account, server-only), source_mappings/import_rows, dry-run/commit, сравнение Source/TMS
 (оставить TMS / применить из Sheets / сравнить), lineage, тесты импорта.
+
+## Phase 3A.1 — Learning & Employee Dossier (ветка `phase-3a-1-learning-dossier`, 07.10.2026)
+Миграции M14–M20 (`supabase/migrations/20261007100*`), откаты `rollback_14…20`. Аудит и карта REUSE/EXTEND/NEW — `docs/PHASE_3A1_AUDIT.md`,
+решения — `docs/DECISIONS.md` D14, шаги Production — `docs/DEPLOYMENT.md` §6.
+Новые разделы: `/employees/[id]` (13 вкладок: обзор с KPI, история, мероприятия, экзамены, сертификаты, индивидуальное обучение, договоры,
+документы, навыки, план развития, затраты, хронология, аудит), `/employees/import`, `/exams`, `/exams/[id]`, `/certificates`, `/funding`,
+`/funding/[id]`, `/funding/new`, `/funding/policies`, `/imports`, `/imports/new`, `/imports/[id]`, `/imports/templates/[entity]`, `/export/[entity]`,
+`/notifications`, `/settings/request-links`, публичные `/request` и `/request/[token]`; глобальный поиск Ctrl+K, колокольчик уведомлений,
+блок «Требует внимания» на дашборде, крошки и «← Назад».
+Тесты: SQL 207 (`phase3a1_tests.sql`) + прежние 44/118/12/35/111, Vitest 389, Playwright 128 (desktop + mobile).

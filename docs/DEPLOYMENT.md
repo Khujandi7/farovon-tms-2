@@ -82,3 +82,29 @@ Vitest, сборку, Playwright и SQL-тесты; секреты для CI н�
 3. Проверить: `/trainings`, карточка, `/data-quality`, `/employees`, `/settings/references`.
 Откат: `supabase/rollback/rollback_13_…` → `rollback_10_…` в обратном порядке (проверено `verify_rollback.sh`: отпечаток равен Phase 1).
 Права `ACADEMY_MANAGER`/`HR`/`FINANCE` выдаёт ADMIN в `/settings/users`.
+
+## 6. Phase 3A.1: миграции M14–M20 (НЕ применены; применять только после мержа и подтверждения владельца)
+
+Причина ошибки «Не удалось загрузить обучения / заявки» в Production: применены миграции только до Phase 2.2 — M10–M13 отсутствуют,
+а код Phase 3A уже читает `v_training_list`, новые колонки и RPC `dq_scan`/`entity_audit`. Это не баг кода (подробно — `docs/PHASE_3A1_AUDIT.md`).
+
+Порядок (каждый шаг — отдельной транзакцией, после резервной копии):
+1. Backup: Dashboard → Database → Backups (или `pg_dump`).
+2. M10–M13 (раздел 5), затем проверка `/trainings` и `/trainings/requests` под ADMIN — ошибка «Не удалось загрузить» должна исчезнуть.
+3. M14 `20261007100000_phase3a1_01_learning_events.sql` — ВНИМАНИЕ: `alter type training_status add value` нельзя выполнять внутри
+   транзакции вместе с использованием новых значений; `supabase db push` применяет файл корректно (значения добавляются до использования).
+   В SQL Editor выполните сначала три строки `alter type …`, затем остальной файл.
+4. M15 `…100100_phase3a1_02_employees_org.sql`, M16 `…100200_phase3a1_03_dossier_core.sql` (создаёт приватный бакет Storage `tms-documents`
+   (20 МБ, pdf/png/jpg/docx/xlsx/csv) и политики `storage.objects`; проверьте в Dashboard → Storage, что бакет приватный),
+   M17 `…100300_phase3a1_04_funding.sql`, M18 `…100400_phase3a1_05_dossier_dq.sql`, M19 `…100500_phase3a1_06_public_requests.sql`,
+   M20 `…100600_phase3a1_07_imports.sql`.
+5. Под ADMIN: `select dq_scan();`, `select notify_scan();`; открыть `/employees/<id>`, `/exams`, `/certificates`, `/funding`, `/imports`,
+   `/notifications`, `/settings/request-links`, `/settings/references`.
+6. Переменные Vercel: `SUPABASE_SERVICE_ROLE_KEY` (уже нужен для Users; публичный портал вызывает через него ТОЛЬКО
+   `public_request_options` и `submit_public_request`), `PUBLIC_REQUEST_HASH_SECRET` (≥ 16 символов, рекомендуется; иначе секрет выводится из
+   service_role), `NEXT_PUBLIC_SITE_URL` (для полных ссылок заявок). `PUBLIC_REQUEST_CAPTCHA` не задавать (CAPTCHA пока не подключена).
+7. ADMIN создаёт ссылки заявок в `/settings/request-links` и открывает приём (`Приём публичных заявок открыт`).
+8. Типы Supabase: `supabase gen types typescript` должен совпасть с `src/types/database.ts`.
+
+Откат: `supabase/rollback/rollback_20_…` → `rollback_14_…` в обратном порядке (проверено `verify_rollback.sh`). Данные новых таблиц
+удаляются, статусы DRAFT/APPROVED/REGISTERED становятся PLANNED, файлы в Storage остаются (удалить бакет вручную при необходимости).
