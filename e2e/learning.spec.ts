@@ -5,9 +5,8 @@ import { MOCK_URL, signInAs } from "./helpers";
 const E1 = "44444444-4444-4444-8444-444444444444";
 const TOKEN = "ab".repeat(24);
 
-test.beforeEach(async ({ request }) => {
-  await request.get(`${MOCK_URL}/__mock/reset`);
-});
+// Состояние mock изолировано по сессии входа каждого теста (e2e/mock-phase3.mjs); портал пишет в общий список /__mock/portal,
+// поэтому проверки смотрят на последнюю запись.
 
 async function noHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

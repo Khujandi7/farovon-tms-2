@@ -211,7 +211,7 @@ export const createMockServer = () => http.createServer(async (req, res) => {
     if (url.pathname === "/rest/v1/rpc/app_role") return send(res, 200, role);
     const special = ["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles", "/rest/v1/trainings"].includes(url.pathname);
     if (!special && handlePhase3a1(req, res, url, body, role)) return;
-    if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3(req, res, url, body, role, u)) return;
+    if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3(req, res, url, body, role, u, claims?.session_id)) return;
     if (url.pathname === "/rest/v1/rpc/kpi_year") return send(res, 200, [kpi(role === "HR")]);
     if (url.pathname === "/rest/v1/trainings") return send(res, 200, trainings);
     if (url.pathname === "/rest/v1/profiles") {

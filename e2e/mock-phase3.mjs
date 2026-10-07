@@ -12,26 +12,27 @@ const base = (id, code, title, o = {}) => ({
   created_by: null, updated_by: null, created_at: "2026-09-01T09:00:00Z", updated_at: "2026-09-01T09:00:00Z", ...o,
 });
 
-export const store = {
-  trainings: [],
-  audit: [],
-  issues: [],
-  nextAudit: 1,
-};
-export function resetStore() {
+// Состояние изолировано по сессии входа (claim session_id): каждый тест входит заново и получает свою «базу» из seed,
+// поэтому параллельные воркеры не стирают друг другу аудит и не видят чужих правок.
+const stores = new Map();
+function seedStore() {
+  const store = { trainings: [], audit: [], issues: [], nextAudit: 1 };
   store.trainings = [
     base(T1, "TR-2026-1", "Лидерство для руководителей"),
     base(T2, "TR-2026-2", "Охрана труда", { status: "PLANNED", source_type: "UNPLANNED", source_confirmed: false, start_date: "2026-05-20", end_date: "2026-05-20", hours: 4, participants: 0, man_hours: 0, actual_tjs: 0, format: "ONLINE" }),
     base(T3, "TR-2025-9", "Архивный курс", { archived_at: "2026-01-01T00:00:00Z", start_date: "2025-02-01", end_date: "2025-02-01" }),
   ];
-  store.audit = [];
-  store.nextAudit = 1;
   store.issues = [
     { id: 1, rule_code: "TRAINING_NO_PARTICIPANTS", severity: "WARNING", entity_table: "trainings", entity_id: T1, message: "У завершённого тренинга нет участников", suggestion: "Добавьте участников", status: "OPEN", details: null, resolution: null, updated_at: ISSUE_AT, created_at: ISSUE_AT },
     { id: 2, rule_code: "SRC_CANDIDATE_UNCONFIRMED", severity: "ERROR", entity_table: "trainings", entity_id: T2, message: "Внеплановый тренинг не подтверждён", suggestion: "Свяжите с заявкой", status: "OPEN", details: null, resolution: null, updated_at: ISSUE_AT, created_at: ISSUE_AT },
   ];
+  return store;
 }
-resetStore();
+export function storeFor(sid) {
+  const key = sid || "anonymous";
+  if (!stores.has(key)) stores.set(key, seedStore());
+  return stores.get(key);
+}
 
 const REASON_FIELDS = ["status", "start_date", "end_date", "hours"];
 
@@ -76,18 +77,19 @@ function rowsResponse(req, res, url, rows) {
 
 const sortRows = (rows) => [...rows].sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)) || b.canonical_id.localeCompare(a.canonical_id));
 
-function addAudit(userId, userName, table, rowId, action, oldRow, newRow, reason) {
+function addAudit(store, userId, userName, table, rowId, action, oldRow, newRow, reason) {
   const changes = {};
   for (const k of Object.keys(newRow ?? {})) if (oldRow?.[k] !== newRow[k]) changes[k] = { old: oldRow?.[k] ?? null, new: newRow[k] };
   store.audit.unshift({ id: store.nextAudit++, at: new Date().toISOString(), user_id: userId, user_name: userName, table_name: table, row_id: rowId, action, reason: reason ?? null, old_row: oldRow, new_row: newRow, changes });
 }
 
 /** Возвращает true, если запрос обработан. */
-export function handlePhase3(req, res, url, body, role, user) {
+export function handlePhase3(req, res, url, body, role, user, sid) {
+  const store = storeFor(url.searchParams.get("sid") ?? sid);
   const path = url.pathname.replace("/rest/v1/", "");
 
   // ---- служебное ----
-  if (url.pathname === "/__mock/reset") { resetStore(); return ok(res, { ok: true }); }
+  if (url.pathname === "/__mock/reset") { stores.delete(url.searchParams.get("sid") ?? ""); return ok(res, { ok: true }); }
   if (url.pathname === "/__mock/audit") return ok(res, store.audit);
   if (!url.pathname.startsWith("/rest/v1/")) return false;
 
@@ -143,7 +145,7 @@ export function handlePhase3(req, res, url, body, role, user) {
       if (needs && !(body.p_reason ?? "").trim()) return pgErr(res, 400, "P0012", "Укажите причину изменения");
       const before = { ...t };
       Object.assign(t, patch);
-      addAudit(user.id, user.name, "trainings", t.id, "UPDATE", before, t, body.p_reason);
+      addAudit(store, user.id, user.name, "trainings", t.id, "UPDATE", before, t, body.p_reason);
       return ok(res, t.id);
     }
   }

@@ -4,9 +4,8 @@ import { signInAs, MOCK_URL } from "./helpers";
 const T1 = "11111111-1111-4111-8111-111111111111";
 const T2 = "22222222-2222-4222-8222-222222222222";
 
-test.beforeEach(async ({ request }) => {
-  await request.get(`${MOCK_URL}/__mock/reset`);
-});
+// Состояние mock изолировано по сессии входа каждого теста (см. e2e/mock-phase3.mjs), общий reset не нужен:
+// параллельные тесты не должны стирать друг другу данные.
 
 async function openField(page: Page, label: string) {
   await page.getByRole("button", { name: `Изменить: ${label}` }).click();
@@ -44,7 +43,7 @@ test.describe("список обучений", () => {
 
 test.describe("карточка тренинга: inline-редактирование и аудит", () => {
   test("менеджер правит название без причины, статус — только с причиной; изменения попадают в историю", async ({ page, context, baseURL, request }) => {
-    await signInAs(context, "manager@test.local", baseURL!);
+    const sid = await signInAs(context, "manager@test.local", baseURL!);
     await page.goto(`/trainings/${T1}`);
     await expect(page.getByRole("heading", { name: "Лидерство для руководителей" })).toBeVisible();
 
@@ -63,7 +62,7 @@ test.describe("карточка тренинга: inline-редактирова�
     await page.getByRole("button", { name: "Сохранить" }).click();
     await expect(page.getByTestId("field-status-editor")).toHaveCount(0);
 
-    const audit = await (await request.get(`${MOCK_URL}/__mock/audit`)).json();
+    const audit = await (await request.get(`${MOCK_URL}/__mock/audit?sid=${sid}`)).json();
     expect(audit).toHaveLength(2);
     expect(audit[0].reason).toBe("Тренер заболел, перенос");
     expect(audit[1].changes.title.new).toBe("Лидерство 2.0");
