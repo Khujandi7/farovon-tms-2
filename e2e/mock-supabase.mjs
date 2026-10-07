@@ -4,6 +4,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import { handlePhase3 } from "./mock-phase3.mjs";
 import { handleFallback, handlePhase3a1, handlePublic, portalStore } from "./mock-phase3a1.mjs";
+import { handlePhase3a2 } from "./mock-phase3a2.mjs";
 
 export const PORT = Number(process.env.MOCK_SUPABASE_PORT ?? 54399);
 const SECRET = "e2e-only-secret";
@@ -210,6 +211,7 @@ export const createMockServer = () => http.createServer(async (req, res) => {
     const role = appRole(u);
     if (url.pathname === "/rest/v1/rpc/app_role") return send(res, 200, role);
     const special = ["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles", "/rest/v1/trainings"].includes(url.pathname);
+    if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3a2(req, res, url, body, role, claims?.session_id)) return;
     if (!special && handlePhase3a1(req, res, url, body, role)) return;
     if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3(req, res, url, body, role, u, claims?.session_id)) return;
     if (url.pathname === "/rest/v1/rpc/kpi_year") return send(res, 200, [kpi(role === "HR")]);

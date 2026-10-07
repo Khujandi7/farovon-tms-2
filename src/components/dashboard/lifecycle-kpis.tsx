@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ErrorState } from "@/components/common/states";
-import { formatMoney, formatNumber, formatPercent } from "@/lib/format";
+import { formatDecimal, formatMoney, formatNumber } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type Tile = { id: string; label: string; value: string; hint?: string; href?: string };
@@ -21,7 +21,7 @@ export async function LifecycleKpis({ year }: { year: number }) {
     { id: "man-hours", label: "Человеко-часов", value: formatNumber(Number(k.man_hours)), hint: "по посещаемости" },
     { id: "certificates", label: "Сертификатов выдано", value: formatNumber(k.certificates_issued), href: "/certificates" },
     { id: "exams", label: "Экзаменов", value: formatNumber(k.exams_total), hint: `сдано: ${formatNumber(k.exams_passed)}`, href: "/exams" },
-    { id: "feedback", label: "Обратная связь", value: k.avg_feedback === null ? "—" : formatNumber(Number(k.avg_feedback)), hint: `ответили ${k.answered} из ${k.invited}${k.response_rate === null ? "" : ` (${formatPercent(Number(k.response_rate)).replace(" ", "")})`}`, href: "/feedback" },
+    { id: "feedback", label: "Обратная связь", value: k.avg_feedback === null ? "—" : formatDecimal(Number(k.avg_feedback)), hint: `ответили ${k.answered} из ${k.invited}${k.response_rate === null ? "" : ` (${formatDecimal(Number(k.response_rate))}%)`}`, href: "/feedback" },
     { id: "cost-participant", label: "Стоимость на участника", value: money(k.cost_per_participant === null ? null : Number(k.cost_per_participant)) },
     { id: "cost-hour", label: "Стоимость часа обучения", value: money(k.cost_per_learning_hour === null ? null : Number(k.cost_per_learning_hour)) },
   ];

@@ -7,7 +7,7 @@ import { YearFilter } from "@/components/dashboard/year-filter";
 import { TRAINER_KIND_LABELS } from "@/components/trainings/trainers-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatNumber } from "@/lib/format";
+import { formatDecimal, formatNumber } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { availableYears, parseYear } from "@/lib/years";
 
@@ -71,7 +71,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                             <td className="py-2 pr-3 font-medium"><Link href={`/trainers/${r.trainer_id}`} className="hover:text-brand hover:underline">{r.trainer}</Link>{r.organization && <span className="block text-xs font-normal text-muted-foreground">{r.organization}</span>}</td>
                             <td className="px-3"><Badge variant="outline">{TRAINER_KIND_LABELS[r.kind]}</Badge></td>
                             <td className="px-3 tabular-nums">{formatNumber(r.events)}</td><td className="px-3 tabular-nums">{formatNumber(r.participants)}</td><td className="px-3 tabular-nums">{formatNumber(Number(r.man_hours))}</td>
-                            <td className="pl-3 tabular-nums">{r.scores_hidden ? "скрыта" : r.avg_trainer_score === null ? "—" : formatNumber(Number(r.avg_trainer_score))}<span className="block text-xs text-muted-foreground">ответов: {r.responses}</span></td>
+                            <td className="pl-3 tabular-nums">{r.scores_hidden ? "скрыта" : r.avg_trainer_score === null ? "—" : formatDecimal(Number(r.avg_trainer_score))}<span className="block text-xs text-muted-foreground">ответов: {r.responses}</span></td>
                           </tr>
                         ))}
                       </tbody>

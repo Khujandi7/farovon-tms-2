@@ -4,7 +4,7 @@ import { MessageSquareText } from "lucide-react";
 import { SectionPage } from "@/components/common/section-page";
 import { EmptyState, ErrorState } from "@/components/common/states";
 import { YearFilter } from "@/components/dashboard/year-filter";
-import { formatNumber } from "@/lib/format";
+import { formatDecimal } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { availableYears, parseYear } from "@/lib/years";
 
@@ -19,7 +19,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
       {async () => {
         const supabase = await createClient();
         const { data: trainings, error } = await supabase
-          .from("trainings")
+          .from("v_training_list")
           .select("id, canonical_id, title, start_date")
           .is("archived_at", null)
           .eq("status", "COMPLETED")
@@ -29,7 +29,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
           .limit(60);
         if (error) return <ErrorState className="bg-card" title="Не удалось загрузить обучения" description="Попробуйте обновить страницу." />;
         const rows = await Promise.all(
-          (trainings ?? []).map(async (t) => {
+          (trainings ?? []).filter((t): t is typeof t & { id: string } => !!t.id).map(async (t) => {
             const { data } = await supabase.rpc("training_feedback_summary", { p_training: t.id });
             return { t, s: data?.[0] };
           }),
@@ -44,9 +44,9 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
               <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 text-sm" data-testid="feedback-row">
                 <div className="min-w-0">
                   <Link href={`/trainings/${t.id}?tab=feedback`} className="font-medium hover:text-brand hover:underline">{t.canonical_id} · {t.title}</Link>
-                  <p className="text-xs text-muted-foreground">Приглашено {s!.invited} · ответило {s!.answered}{s!.response_rate === null ? "" : ` · ${formatNumber(Number(s!.response_rate))}%`}</p>
+                  <p className="text-xs text-muted-foreground">Приглашено {s!.invited} · ответило {s!.answered}{s!.response_rate === null ? "" : ` · ${formatDecimal(Number(s!.response_rate))}%`}</p>
                 </div>
-                <span className="tabular-nums">{s!.scores_hidden ? "оценка скрыта" : s!.final_score === null ? "—" : `Итог: ${formatNumber(Number(s!.final_score))}`}</span>
+                <span className="tabular-nums">{s!.scores_hidden ? "оценка скрыта" : s!.final_score === null ? "—" : `Итог: ${formatDecimal(Number(s!.final_score))}`}</span>
               </li>
             ))}
           </ul>

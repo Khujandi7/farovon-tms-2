@@ -10,12 +10,12 @@ import { Field, FormAlert } from "@/components/auth/form-parts";
 import { EmptyState } from "@/components/common/states";
 import { useToast } from "@/components/workflow/toast";
 import { recordFeedback, sendFeedbackInvitations } from "@/app/(app)/trainings/lifecycle-actions";
-import { formatNumber } from "@/lib/format";
+import { formatDecimal } from "@/lib/format";
 
 export type FeedbackSummary = { invited: number; answered: number; response_rate: number | null; materials: number | null; trainer: number | null; org: number | null; final_score: number | null; scores_hidden: boolean };
 export type InvitationRow = { participant_id: string; full_name: string; status: "INVITED" | "ANSWERED" };
 
-const fmt = (v: number | null) => (v === null ? "—" : formatNumber(v));
+const fmt = (v: number | null) => formatDecimal(v);
 
 /** Обратная связь по обучению: приглашено / ответило / доля ответов, оценки по блокам, итог 40/40/20. Оценки скрыты ниже порога анонимности (Phase 1.5). */
 export function FeedbackPanel({ trainingId, summary, invitations, canManage, archived, canInvite }: { trainingId: string; summary: FeedbackSummary; invitations: InvitationRow[]; canManage: boolean; archived: boolean; canInvite: boolean }) {
