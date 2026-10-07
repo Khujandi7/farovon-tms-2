@@ -10,6 +10,14 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/loginx")).toBe(false);
     expect(isPublicPath("/budget")).toBe(false);
   });
+  it("публичный портал заявок открыт, похожие пути закрыты", () => {
+    expect(isPublicPath("/request")).toBe(true);
+    expect(isPublicPath("/request/" + "a".repeat(48))).toBe(true);
+    expect(isPublicPath("/requests")).toBe(false);
+    expect(isPublicPath("/requestx/abc")).toBe(false);
+    expect(isPublicPath("/trainings/requests")).toBe(false);
+    expect(isPublicPath("/settings/request-links")).toBe(false);
+  });
 });
 
 describe("safeNextPath (защита от открытого редиректа)", () => {
@@ -21,6 +29,9 @@ describe("safeNextPath (защита от открытого редиректа)
     for (const bad of ["https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)", "evil", "/x\u0000y"]) {
       expect(safeNextPath(bad)).toBe("/dashboard");
     }
+  });
+  it("не возвращает на публичный портал заявок", () => {
+    expect(safeNextPath("/request/abc")).toBe("/dashboard");
   });
   it("не возвращает на страницу входа и использует запасной путь", () => {
     expect(safeNextPath("/login")).toBe("/dashboard");

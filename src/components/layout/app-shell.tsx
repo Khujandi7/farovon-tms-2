@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/common/logo";
 import { ThemeToggle } from "@/components/common/theme-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import { CommandPalette } from "@/components/search/command-palette";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -36,6 +38,8 @@ export function AppShell({ children, sections, user }: ShellProps) {
           </Link>
           <span className="hidden text-sm font-medium text-muted-foreground lg:inline">FAROVON TMS 2.0</span>
           <div className="ml-auto flex items-center gap-1">
+            <CommandPalette />
+            <NotificationBell />
             <ThemeToggle />
             <UserMenu {...user} />
           </div>

@@ -13,6 +13,7 @@ import { SOURCE_TYPE_LABELS, TRAINING_FORMAT_LABELS, TRAINING_STATUS_LABELS, TRA
 import { createClient } from "@/lib/supabase/server";
 import { availableYears } from "@/lib/years";
 import { PAGE_SIZE, listQuery, parseListParams } from "@/lib/trainings/list-params";
+import { loadEventTypes } from "@/lib/trainings/load-references";
 import { can } from "@/lib/workflows/roles";
 
 export const metadata: Metadata = { title: "Обучения" };
@@ -38,7 +39,7 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
         const supabase = await createClient();
         let req = supabase
           .from("v_training_list")
-          .select("id, canonical_id, title, format, status, source_type, source_confirmed, hours, start_date, end_date, participants, man_hours, actual_tjs, archived_at", { count: "exact" })
+          .select("id, canonical_id, title, format, status, source_type, source_confirmed, hours, start_date, end_date, participants, man_hours, actual_tjs, archived_at, event_type_code, event_type_name", { count: "exact" })
           .order("start_date", { ascending: false })
           .order("canonical_id", { ascending: false })
           .range((params.page - 1) * PAGE_SIZE, params.page * PAGE_SIZE - 1);
@@ -46,8 +47,10 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
         if (params.year) req = req.gte("start_date", `${params.year}-01-01`).lte("start_date", `${params.year}-12-31`);
         if (params.status) req = req.eq("status", params.status);
         if (params.source) req = req.eq("source_type", params.source);
+        if (params.type) req = req.eq("event_type_code", params.type);
         if (params.q) req = req.or(`title.ilike.%${params.q}%,canonical_id.ilike.%${params.q}%`);
         const { data, error, count } = await req;
+        const eventTypes = await loadEventTypes({ includeInactive: true });
         const canCreate = can(session.role, "training");
         const showMoney = session.role !== "HR";
         const total = count ?? 0;
@@ -63,6 +66,15 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
                     <option value="">Все годы</option>
                     {availableYears().map((y) => (
                       <option key={y} value={y}>{y}</option>
+                    ))}
+                  </Select>
+                </label>
+                <label className="grid gap-1 text-xs text-muted-foreground">
+                  Тип
+                  <Select name="type" defaultValue={params.type ?? ""} className="min-w-40" data-testid="filter-type">
+                    <option value="">Любой</option>
+                    {eventTypes.map((t) => (
+                      <option key={t.id} value={t.code}>{t.name}{t.is_active ? "" : " (отключён)"}</option>
                     ))}
                   </Select>
                 </label>
@@ -91,7 +103,7 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
                   <input type="checkbox" name="archived" value="1" defaultChecked={params.archived} className="size-4 accent-[var(--brand)]" /> Архив
                 </label>
                 <Button type="submit" variant="outline">Применить</Button>
-                {(params.year || params.status || params.source || params.q || params.archived) && (
+                {(params.year || params.status || params.source || params.type || params.q || params.archived) && (
                   <Button asChild variant="ghost"><Link href="/trainings">Сбросить</Link></Button>
                 )}
               </form>
@@ -110,7 +122,7 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
               <EmptyState
                 className="bg-card"
                 icon={ShieldCheck}
-                title={params.q || params.year || params.status || params.source ? "Ничего не найдено" : params.archived ? "Архив пуст" : "Обучений пока нет"}
+                title={params.q || params.year || params.status || params.source || params.type ? "Ничего не найдено" : params.archived ? "Архив пуст" : "Обучений пока нет"}
                 description={canCreate ? "Создайте первый тренинг кнопкой «Новый тренинг» или измените фильтры." : "Измените фильтры или дождитесь появления записей."}
               />
             ) : (
@@ -120,6 +132,7 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
                     <TableRow className="hover:bg-transparent">
                       <TableHead>Код</TableHead>
                       <TableHead>Название</TableHead>
+                      <TableHead>Тип</TableHead>
                       <TableHead>Даты</TableHead>
                       <TableHead className="text-right">Часы</TableHead>
                       <TableHead className="text-right">Участники</TableHead>
@@ -138,6 +151,7 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
                           <Link href={`/trainings/${t.id}`} className="hover:text-brand hover:underline">{t.title}</Link>
                           {t.archived_at && <Badge variant="outline" className="ml-2">Архив</Badge>}
                         </TableCell>
+                        <TableCell className="whitespace-normal">{t.event_type_name ?? "Обучение"}</TableCell>
                         <TableCell>{formatDateRange(t.start_date, t.end_date)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(t.hours)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(t.participants)}</TableCell>

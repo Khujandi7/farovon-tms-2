@@ -13,7 +13,7 @@ import { useToast } from "@/components/workflow/toast";
 import { resolveDqIssue } from "@/app/(app)/data-quality/actions";
 import { linkRequest } from "@/app/(app)/trainings/actions";
 import { DQ_SEVERITY_LABELS, DQ_SEVERITY_VARIANT, DQ_STATUS_LABELS } from "@/lib/labels";
-import { actionsFor, planFact, ruleTitle, type DqAction } from "@/lib/dq/catalog";
+import { actionsFor, planFact, ruleDescription, ruleTitle, type DqAction } from "@/lib/dq/catalog";
 import type { Database } from "@/types/database";
 
 export type DqIssueView = {
@@ -30,7 +30,7 @@ export type DqIssueView = {
 };
 export type Choice = { id: string; label: string };
 
-const ICON: Record<DqAction["kind"], typeof Eye> = { open: ExternalLink, fix: Pencil, choose: Search, "link-request": Link2, "link-training": Link2, review: Eye, confirm: Check };
+const ICON: Record<DqAction["kind"], typeof Eye> = { open: ExternalLink, fix: Pencil, match: Search, choose: Search, link: Link2, "link-request": Link2, "link-training": Link2, review: Eye, confirm: Check };
 
 /** Карточка проблемы с действиями. Доступно только ролям, которые могут решать проблемы (canAct). */
 export function DqIssueCard({ issue, canAct, requestChoices, trainingChoices }: { issue: DqIssueView; canAct: boolean; requestChoices: Choice[]; trainingChoices: Choice[] }) {
@@ -61,7 +61,7 @@ export function DqIssueCard({ issue, canAct, requestChoices, trainingChoices }: 
     <li className="rounded-xl border bg-card p-4 shadow-xs" data-testid="dq-issue" data-rule={issue.rule_code}>
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={DQ_SEVERITY_VARIANT[issue.severity]}>{DQ_SEVERITY_LABELS[issue.severity]}</Badge>
-        <span className="text-sm font-medium">{ruleTitle(issue.rule_code)}</span>
+        <span className="text-sm font-medium" title={ruleDescription(issue.rule_code)}>{ruleTitle(issue.rule_code)}</span>
         <Badge variant="outline">{DQ_STATUS_LABELS[issue.status] ?? issue.status}</Badge>
       </div>
       <p className="mt-2 text-sm">{issue.message}</p>
@@ -86,6 +86,7 @@ export function DqIssueCard({ issue, canAct, requestChoices, trainingChoices }: 
               );
             }
             if (!canAct) return null;
+            if (a.kind !== "review" && a.kind !== "confirm" && a.kind !== "link-request" && a.kind !== "link-training") return null;
             const onClick = a.kind === "review" ? review : a.kind === "confirm" ? () => setDialog("confirm") : () => { setChoice(""); setDialog(a.kind as "link-request" | "link-training"); };
             return (
               <Button key={a.kind + a.label} size="sm" variant="secondary" onClick={onClick} disabled={busy}>

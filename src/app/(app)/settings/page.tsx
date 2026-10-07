@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Building2, Users } from "lucide-react";
+import { Building2, Link2, Users } from "lucide-react";
 import { SectionPage } from "@/components/common/section-page";
 import { ThemeToggle } from "@/components/common/theme-toggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +59,21 @@ export default function SettingsPage() {
                 <Button asChild variant="outline">
                   <Link href="/settings/references">
                     <Building2 /> Подразделения
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          {can(session.role, "requestLinks") && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Ссылки для заявок</CardTitle>
+                <CardDescription>Публичные ссылки для руководителей: заявки без входа в систему.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="outline">
+                  <Link href="/settings/request-links">
+                    <Link2 /> Ссылки заявок
                   </Link>
                 </Button>
               </CardContent>

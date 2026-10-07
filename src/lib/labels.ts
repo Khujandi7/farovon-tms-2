@@ -152,6 +152,12 @@ export const FIELD_LABELS: Record<string, string> = {
   is_active: "Активен",
   department_id: "Департамент",
   unit_id: "Отдел",
+  event_type_id: "Тип мероприятия",
+  provider_id: "Провайдер",
+  organizer: "Организатор",
+  result_summary: "Итог мероприятия",
+  result: "Результат",
+  result_note: "Примечание к результату",
 };
 
 export const TRAINING_STATUS_OPTIONS = (Object.keys(TRAINING_STATUS_LABELS) as Enums["training_status"][]).map((v) => ({ value: v, label: TRAINING_STATUS_LABELS[v] }));

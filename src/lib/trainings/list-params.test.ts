@@ -3,11 +3,11 @@ import { listQuery, parseListParams } from "./list-params";
 
 describe("parseListParams", () => {
   it("значения по умолчанию", () => {
-    expect(parseListParams({})).toEqual({ year: null, status: null, source: null, q: "", page: 1, archived: false });
+    expect(parseListParams({})).toEqual({ year: null, status: null, source: null, type: null, q: "", page: 1, archived: false });
   });
   it("валидные значения", () => {
     expect(parseListParams({ year: "2025", status: "COMPLETED", source: "UNPLANNED", q: "Excel", page: "3", archived: "1" })).toEqual({
-      year: 2025, status: "COMPLETED", source: "UNPLANNED", q: "Excel", page: 3, archived: true,
+      year: 2025, status: "COMPLETED", source: "UNPLANNED", type: null, q: "Excel", page: 3, archived: true,
     });
   });
   it("мусор отбрасывается", () => {
@@ -20,6 +20,17 @@ describe("parseListParams", () => {
   });
   it("берёт первое значение из массива", () => {
     expect(parseListParams({ year: ["2024", "2025"] }).year).toBe(2024);
+  });
+});
+
+describe("фильтр по типу", () => {
+  it("принимает код типа и отбрасывает мусор", () => {
+    expect(parseListParams({ type: "SEMINAR" }).type).toBe("SEMINAR");
+    expect(parseListParams({ type: "sem'inar" }).type).toBeNull();
+    expect(parseListParams({ type: "a" }).type).toBeNull();
+  });
+  it("попадает в строку запроса", () => {
+    expect(listQuery(parseListParams({ type: "FORUM" }))).toBe("?type=FORUM");
   });
 });
 
