@@ -51,6 +51,14 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
         if (params.q) req = req.or(`title.ilike.%${params.q}%,canonical_id.ilike.%${params.q}%`);
         const { data, error, count } = await req;
         const eventTypes = await loadEventTypes({ includeInactive: true });
+        // тренеры строк страницы (training_trainers → trainers): основной первым
+        const ids = (data ?? []).map((t) => t.id).filter((x): x is string => !!x);
+        const { data: tt } = ids.length ? await supabase.from("training_trainers").select("training_id, role, trainer:trainers(full_name)").in("training_id", ids) : { data: [] };
+        const trainersOf = new Map<string, string[]>();
+        for (const r of [...(tt ?? [])].sort((a, b) => (a.role === b.role ? 0 : a.role === "PRIMARY" ? -1 : 1))) {
+          const n = (r.trainer as { full_name: string } | null)?.full_name;
+          if (n) trainersOf.set(r.training_id, [...(trainersOf.get(r.training_id) ?? []), n]);
+        }
         const canCreate = can(session.role, "training");
         const showMoney = session.role !== "HR";
         const total = count ?? 0;
@@ -150,6 +158,7 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
                         <TableCell className="max-w-80 min-w-48 font-medium whitespace-normal">
                           <Link href={`/trainings/${t.id}`} className="hover:text-brand hover:underline">{t.title}</Link>
                           {t.archived_at && <Badge variant="outline" className="ml-2">Архив</Badge>}
+                          {t.id && trainersOf.get(t.id) && <span className="block text-xs font-normal text-muted-foreground" data-testid="training-row-trainers">Тренер: {trainersOf.get(t.id)!.join(", ")}</span>}
                         </TableCell>
                         <TableCell className="whitespace-normal">{t.event_type_name ?? "Обучение"}</TableCell>
                         <TableCell>{formatDateRange(t.start_date, t.end_date)}</TableCell>

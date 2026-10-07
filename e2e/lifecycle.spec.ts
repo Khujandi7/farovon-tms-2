@@ -45,6 +45,10 @@ test.describe("рабочее пространство обучения", () => 
     await page.getByTestId("assign-trainer").click();
     await expect(page.getByTestId("trainer-row")).toHaveCount(1);
     await expect(page.getByTestId("trainer-row")).toContainText("Основной");
+    // тренер виден в списке обучений
+    await page.goto("/trainings");
+    await expect(page.getByTestId("training-row-trainers").first()).toContainText("Ахмедов Рустам");
+    await page.goto(`/trainings/${T1}?tab=trainers`);
     // тот же тренер второй раз — дубликат
     await page.getByTestId("trainer-new-mode").click();
     await page.getByLabel("ФИО *").fill("ахмедов  рустам");
