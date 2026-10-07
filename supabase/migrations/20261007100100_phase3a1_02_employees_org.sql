@@ -145,7 +145,7 @@ begin
   if v_parent is not null and not exists (select 1 from org_units where id = v_parent and level = 'DEPARTMENT' and is_active) then
     raise exception 'Родитель должен быть действующим департаментом' using errcode = 'P0015'; end if;
   perform set_config('app.change_reason', coalesce(nullif(trim(coalesce(p_reason,'')), ''), 'Создание подразделения'), true);
-  insert into org_units(parent_id, name, level) values (v_parent, v_name, case when v_parent is null then 'DEPARTMENT' else 'UNIT' end)
+  insert into org_units(parent_id, name, level) values (v_parent, v_name, case when v_parent is null then 'DEPARTMENT'::org_level else 'UNIT'::org_level end)
   returning id into v_id;
   return v_id;
 end $$;

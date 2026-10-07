@@ -115,7 +115,7 @@ begin
       st := 'UPDATED';
     elsif jsonb_array_length(cands) = 0 then
       if p_entity = 'EMPLOYEES' then st := 'NEW';
-      else st := 'NEEDS_REVIEW'; code := 'EMPLOYEE_NOT_FOUND'; msgs := msgs || 'Сотрудник не найден в справочнике'; end if;
+      else st := 'NEEDS_REVIEW'; code := 'EMPLOYEE_NOT_FOUND'; msgs := msgs || 'Сотрудник не найден в справочнике'::text; end if;
     else
       st := 'NEEDS_REVIEW'; code := case when best in ('CODE','EXACT','ALIAS') then 'EMPLOYEE_AMBIGUOUS' else 'EMPLOYEE_FUZZY' end;
       msgs := msgs || (case when n > 1 then 'Найдено несколько сотрудников' else 'Совпадение неточное: проверьте сотрудника' end);
@@ -169,7 +169,7 @@ begin
     if not found then return jsonb_build_object('status','ERROR','messages',jsonb_build_array('Не выбрано мероприятие'),'data','{}'::jsonb); end if;
     d := jsonb_build_object('full_name', v_name, 'employee_code', v_code, 'note', nullif(trim(coalesce(p_in->>'note','')), ''));
     if match is not null and exists (select 1 from training_participants where training_id = v_tr.id and employee_id = match) then
-      st := 'UNCHANGED'; msgs := msgs || 'Уже участник';
+      st := 'UNCHANGED'; msgs := msgs || 'Уже участник'::text;
     elsif match is not null then st := 'NEW'; end if;
 
   elsif p_entity = 'EXAMS' then
@@ -189,7 +189,7 @@ begin
       if v_skill is null then msgs := msgs || ('Квалификация «' || (p_in->>'qualification') || '» не найдена: будет создана при применении');
          if st <> 'NEEDS_REVIEW' then st := 'NEEDS_REVIEW'; code := 'SKILL_UNKNOWN'; end if; end if;
       if match is not null and v_skill is not null and exists (select 1 from exams where employee_id = match and skill_id = v_skill and exam_date = v_date and archived_at is null) then
-        st := 'UNCHANGED'; msgs := msgs || 'Экзамен на эту дату уже есть';
+        st := 'UNCHANGED'; msgs := msgs || 'Экзамен на эту дату уже есть'::text;
       elsif match is not null and st = 'UPDATED' then st := 'NEW'; end if;
     exception when others then return jsonb_build_object('status','ERROR','messages',jsonb_build_array(sqlerrm),'data',d); end;
 
@@ -204,7 +204,7 @@ begin
     if match is not null and exists (select 1 from certificates c where c.employee_id = match and c.archived_at is null
          and ((d->>'certificate_number' is not null and c.certificate_number = d->>'certificate_number')
            or (d->>'certificate_number' is null and lower(c.name) = lower(d->>'name') and c.issue_date is not distinct from (d->>'issue_date')::date))) then
-      st := 'UNCHANGED'; msgs := msgs || 'Такой сертификат уже есть';
+      st := 'UNCHANGED'; msgs := msgs || 'Такой сертификат уже есть'::text;
     elsif match is not null then st := 'NEW'; end if;
 
   elsif p_entity = 'LEARNING_EVENTS' then
@@ -223,7 +223,7 @@ begin
       if nullif(trim(coalesce(p_in->>'type','')), '') is not null and v_type is null then
         st := 'NEEDS_REVIEW'; code := 'TYPE_UNKNOWN'; msgs := msgs || ('Тип «' || (p_in->>'type') || '» не найден в справочнике'); end if;
       select id into match from trainings where norm_name(title) = norm_name(d->>'title') and start_date = v_date and archived_at is null limit 1;
-      if match is not null then st := 'DUPLICATE'; msgs := msgs || 'Мероприятие с таким названием и датой уже есть'; end if;
+      if match is not null then st := 'DUPLICATE'; msgs := msgs || 'Мероприятие с таким названием и датой уже есть'::text; end if;
     exception when others then return jsonb_build_object('status','ERROR','messages',jsonb_build_array(sqlerrm),'data',d); end;
 
   elsif p_entity = 'EXPENSES' then
@@ -241,7 +241,7 @@ begin
       d := jsonb_build_object('training_id', v_tr.id, 'category_id', v_cat, 'amount', v_amt, 'currency', v_cur, 'date', v_date, 'comment', nullif(trim(coalesce(p_in->>'comment','')), ''));
       if exists (select 1 from expense_operations o where o.training_id = v_tr.id and o.category_id = v_cat and o.amount = v_amt
                    and o.currency = v_cur::currency_code and o.operation_date = v_date and o.voided_at is null) then
-        st := 'DUPLICATE'; msgs := msgs || 'Такой расход уже внесён'; end if;
+        st := 'DUPLICATE'; msgs := msgs || 'Такой расход уже внесён'::text; end if;
     exception when others then return jsonb_build_object('status','ERROR','messages',jsonb_build_array(sqlerrm),'data',d); end;
   end if;
   return jsonb_build_object('status', st, 'match_id', match, 'candidates', cands, 'messages', to_jsonb(msgs), 'review_code', code, 'data', d);

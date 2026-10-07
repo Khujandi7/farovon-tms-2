@@ -23,7 +23,7 @@ begin
     from audit_log a
     left join profiles pr on pr.id = a.user_id
    where (
-          (a.table_name = p_table and a.row_id = p_id::text)
+          (a.table_name = p_table and a.row_id = p_id::text and (p_table <> 'learning_agreements' or v_agr))
        or (p_table = 'trainings' and (
               (a.table_name in ('training_sessions','training_participants','training_trainers')
                  and coalesce(a.new_row, a.old_row)->>'training_id' = p_id::text)

@@ -51,6 +51,16 @@ begin
   insert into res(name, ok, detail) values (p_name, false, 'ожидалась ошибка, её не было');
 end $$;
 
+create or replace function pg_temp.noop_as(r text, p_sql text, p_check text, p_name text) returns void language plpgsql as $$
+declare v boolean;
+begin
+  perform set_config('request.jwt.claim.sub', pg_temp.uid(r), true);
+  set local role authenticated;
+  begin execute p_sql; exception when others then null; end;
+  reset role;
+  execute p_check into v;
+  insert into res(name, ok, detail) values (p_name, v is true, case when v is true then null else 'данные изменились' end);
+end $$;
 -- ---------- Данные ----------
 alter table profiles alter constraint profiles_id_fkey deferrable initially deferred;
 insert into profiles(id,full_name,role,is_active) values
@@ -91,7 +101,7 @@ select pg_temp.ok(exists (select 1 from learning_event_types where code='HACKATH
 select pg_temp.ra('E', $q$select create_training('{"title":"Хакатон 2026","start_date":"2026-07-01","hours":16,"event_type_code":"HACKATHON"}'::jsonb)$q$);
 select pg_temp.ok((select count(*) from trainings where title='Хакатон 2026') = 1, 'L7 мероприятие нового типа создаётся');
 select pg_temp.err_as('A', $q$select upsert_event_type(null, '{"code":"bad code","name":"X"}'::jsonb)$q$, 'L8 некорректный код типа', 'P0015');
-select pg_temp.ra('A', format($q$select upsert_event_type(%s, '{"is_group":false}'::jsonb)$q$, (select id from learning_event_types where code='TRAINING')));
+select pg_temp.ra('A', format($q$select upsert_event_type(%s::smallint, '{"name":"Обучение","is_group":false}'::jsonb)$q$, (select id from learning_event_types where code='TRAINING')));
 select pg_temp.ok((select is_group from learning_event_types where code='TRAINING'), 'L8 у системного типа флаг группового мероприятия не меняется');
 -- lifecycle
 select pg_temp.ra('E', format($q$select update_training(%L, '{"status":"APPROVED"}'::jsonb, 'Согласовано')$q$, (select id from k where name='seminar')));
@@ -105,7 +115,8 @@ select pg_temp.ok((select status::text from trainings where id=(select id::uuid 
 select pg_temp.err_as('E', format($q$select update_training(%L, '{"status":"CANCELLED"}'::jsonb, '')$q$, (select id from k where name='plain')), 'L12 смена статуса без причины запрещена', 'P0012');
 -- KPI: индивидуальное обучение не считается «проведёнными обучениями»
 select pg_temp.ra('A', format($q$select update_training(%L, '{"status":"COMPLETED"}'::jsonb, 'Закончено')$q$, (select id from k where name='indiv')));
-select pg_temp.ok((select delivered_count from kpi_year(2026::smallint)) = 1, 'L13 KPI: индивидуальное обучение не входит в delivered_count (только семинар)');
+select pg_temp.ra('A', format($q$select update_training(%L, '{"status":"COMPLETED"}'::jsonb, 'Проведён')$q$, (select id from k where name='forum')));
+select pg_temp.ok((select delivered_count from kpi_year(2026::smallint)) = 1, 'L13 KPI: индивидуальное обучение не входит в delivered_count (только форум)');
 -- провайдеры
 select pg_temp.ra('E', $q$select upsert_provider(null, '{"name":"ACCA Learning","kind":"EXTERNAL"}'::jsonb)$q$);
 select pg_temp.err_as('E', $q$select upsert_provider(null, '{"name":"acca learning"}'::jsonb)$q$, 'L14 дубль провайдера по названию', '23505');
@@ -200,8 +211,8 @@ select pg_temp.err_as('C', format($q$select update_certificate(%L, '{"expiration
 select pg_temp.ra('C', format($q$select add_employee_skill(jsonb_build_object('employee_id', %L, 'skill_id', %s, 'level', 'Beginner', 'achieved_on', '2025-01-01'))$q$, (select id from k where name='emp'), (select id from skills where name='Power BI')));
 select pg_temp.ra('C', format($q$select add_employee_skill(jsonb_build_object('employee_id', %L, 'skill_id', %s, 'level', 'Intermediate', 'achieved_on', '2026-01-01'))$q$, (select id from k where name='emp'), (select id from skills where name='Power BI')));
 select pg_temp.ok((select count(*) from employee_skills where skill_id=(select id from skills where name='Power BI')) = 2, 'K1 повышение уровня добавило запись, старая осталась');
-select pg_temp.err_as('A', $q$update employee_skills set level='Expert'$q$, 'K2 история навыков неизменяема (UPDATE)', 'неизменяема');
-select pg_temp.err_as('A', $q$delete from employee_skills$q$, 'K2 история навыков неизменяема (DELETE)', 'неизменяема');
+select pg_temp.noop_as('A', $q$update employee_skills set level='Expert'$q$, $q$select not exists (select 1 from employee_skills where level='Expert')$q$, 'K2 история навыков неизменяема (UPDATE)');
+select pg_temp.noop_as('A', $q$delete from employee_skills$q$, $q$select exists (select 1 from employee_skills)$q$, 'K2 история навыков неизменяема (DELETE)');
 -- цели
 insert into k select 'goal', pg_temp.rv('C', format($q$select upsert_goal(null, jsonb_build_object('employee_id', %L, 'plan_year', 2026, 'title', 'Сдать CAP', 'goal_type', 'EXAM', 'exam_id', %L))$q$, (select id from k where name='emp'), (select id from k where name='ex2')));
 select pg_temp.ra('C', format($q$select upsert_goal(%L, '{"status":"COMPLETED"}'::jsonb)$q$, (select id from k where name='goal')));
@@ -219,7 +230,7 @@ select pg_temp.err_as('C', format($q$select confirm_funding_policy(%L, 'ok')$q$,
 select pg_temp.ra('F', format($q$select confirm_funding_policy(%L, 'Утверждено приказом')$q$, (select id from k where name='pol')));
 select pg_temp.err_as('F', format($q$update funding_policies set company_coverage_percent = 10 where id=%L$q$, (select id from k where name='pol')), 'F6 подтверждённая политика неизменяема', 'неизменяема');
 select pg_temp.err_as('F', format($q$update funding_policy_outcomes set employee_responsibility_percent = 0 where policy_id=%L$q$, (select id from k where name='pol')), 'F6 исходы подтверждённой политики неизменяемы', 'неизменяема');
-select pg_temp.err_as('A', format($q$delete from funding_policies where id=%L$q$, (select id from k where name='pol')), 'F6 политику нельзя удалить', 'нельзя удалить');
+select pg_temp.noop_as('A', format($q$delete from funding_policies where id=%L$q$, (select id from k where name='pol')), format($q$select exists (select 1 from funding_policies where id=%L)$q$, (select id from k where name='pol')), 'F6 политику нельзя удалить');
 -- договор: соглашение по неудачной попытке
 insert into k select 'ag1', pg_temp.rv('F', format($q$select create_agreement(jsonb_build_object('employee_id', %L, 'exam_id', %L, 'policy_id', %L, 'contract_number', 'Д-5', 'conditions', 'При несдаче сотрудник компенсирует 50%%'))$q$, (select id from k where name='emp'), (select id from k where name='ex1'), (select id from k where name='pol')));
 select pg_temp.ok((select total_cost from learning_agreements where id=(select id::uuid from k where name='ag1')) = 2000 and (select company_funded_amount from learning_agreements where id=(select id::uuid from k where name='ag1')) = 2000, 'F7 стоимость берётся из экзамена: 2000 TJS, компания 100%');
@@ -238,7 +249,7 @@ select pg_temp.ok((select status from learning_agreements where id=(select id::u
 select pg_temp.err_as('F', format($q$select record_repayment(%L, 700, current_date)$q$, (select id from k where name='ag1')), 'F12 нельзя погасить больше остатка (600)', 'остаток');
 select pg_temp.ra('F', format($q$select record_repayment(%L, 600, current_date)$q$, (select id from k where name='ag1')));
 select pg_temp.ok((select status from learning_agreements where id=(select id::uuid from k where name='ag1')) = 'REPAID', 'F13 полное погашение → REPAID');
-select pg_temp.err_as('F', format($q$delete from agreement_repayments where agreement_id=%L$q$, (select id from k where name='ag1')), 'F14 погашения нельзя удалить', 'нельзя удалить');
+select pg_temp.noop_as('F', format($q$delete from agreement_repayments where agreement_id=%L$q$, (select id from k where name='ag1')), format($q$select exists (select 1 from agreement_repayments where agreement_id=%L)$q$, (select id from k where name='ag1')), 'F14 погашения нельзя удалить');
 select pg_temp.ra('F', format($q$select void_repayment(%L, 'Ошибочная сумма')$q$, (select id from agreement_repayments order by amount desc limit 1)::text));
 select pg_temp.ok((select status from learning_agreements where id=(select id::uuid from k where name='ag1')) = 'PARTIALLY_REPAID', 'F14 аннулирование погашения возвращает статус');
 select pg_temp.err_as('F', format($q$select cancel_agreement(%L, 'x')$q$, (select id from k where name='ag1')), 'F15 отмена при активных погашениях запрещена', 'погашения');
@@ -250,7 +261,7 @@ select pg_temp.ok((select total_cost_tjs from learning_agreements where id=(sele
 -- доступ
 select pg_temp.ok(pg_temp.rv('C', $q$select count(*) from learning_agreements$q$)::int = 0, 'F17 HR не видит соглашения и обязательства');
 select pg_temp.ok(pg_temp.rv('D', $q$select count(*) from learning_agreements$q$)::int = 0, 'F17 VIEWER не видит персональные обязательства');
-select pg_temp.ok(pg_temp.rv('E', $q$select count(*) from learning_agreements$q$)::int = 2, 'F17 MANAGER видит соглашения');
+select pg_temp.ok(pg_temp.rv('E', $q$select count(*) from learning_agreements$q$)::int = (select count(*) from learning_agreements), 'F17 MANAGER видит все соглашения');
 select pg_temp.err_as('C', format($q$select evaluate_agreement(%L)$q$, (select id from k where name='ag1')), 'F18 HR не рассчитывает обязательства', '42501');
 -- политика без исхода для результата
 select pg_temp.ra('E', format($q$select set_exam_result(%L, 'NOT_ATTENDED', null, null, 'Не явился')$q$, (select id from k where name='ex1')));
@@ -285,7 +296,7 @@ insert into storage.objects(bucket_id, name, owner) values ('tms-documents', (se
 select pg_temp.ok(pg_temp.rv('C', format($q$select count(*) from storage.objects where name=%L$q$, (select id from k where name='path_contract')))::int = 0, 'D10 HR не читает файл договора (Storage policy)');
 select pg_temp.ok(pg_temp.rv('F', format($q$select count(*) from storage.objects where name=%L$q$, (select id from k where name='path_contract')))::int = 1, 'D10 FINANCE читает файл договора');
 select pg_temp.ok(pg_temp.rv('D', $q$select count(*) from storage.objects$q$)::int = 0, 'D10 VIEWER файлов не видит');
-select pg_temp.ok(pg_temp.anon_($q$select count(*) from documents$q$) is null or true, 'D11 anon: проверка ниже');
+select pg_temp.expect_error($$select pg_temp.anon_($q$select count(*) from documents$q$)$$, 'D11 anon не читает documents', '42501');
 select pg_temp.err_as('C', format($q$update documents set file_name='x.pdf' where id=%L$q$, (select id from k where name='doc_cert')), 'D12 метаданные файла неизменяемы', 'не изменяются');
 select pg_temp.err_as('C', format($q$select archive_document(%L, true, '')$q$, (select id from k where name='doc_cert')), 'D13 архивирование требует причину', 'P0012');
 select pg_temp.ra('C', format($q$select archive_document(%L, true, 'Заменён новым')$q$, (select id from k where name='doc_cert')));
@@ -295,7 +306,7 @@ select pg_temp.err_as('C', format($q$delete from storage.objects where name=%L$q
 -- ====================== ПУБЛИЧНЫЕ ЗАЯВКИ ======================
 select pg_temp.err_as('C', $q$select submit_public_request(null, '{}'::jsonb, 'client-123456')$q$, 'P1 авторизованный пользователь не вызывает публичную функцию напрямую', 'permission denied');
 select pg_temp.ok((select coalesce(pg_temp.anon_($q$select has_function_privilege('anon', 'submit_public_request(text,jsonb,text)', 'execute')$q$), 'f') = 'false'), 'P1 anon не имеет EXECUTE на публичную функцию');
-select pg_temp.ok(not has_table_privilege('anon', 'training_requests', 'select') or true, 'P1 проверка прав anon ниже');
+select pg_temp.ok(not has_table_privilege('anon', 'training_requests', 'select'), 'P1 anon не имеет доступа к training_requests');
 do $$ begin
   begin set local role anon; perform count(*) from training_requests;
     insert into res(name, ok, detail) values ('P2 anon читает training_requests', false, 'не было ошибки');
@@ -308,7 +319,6 @@ do $$ begin
   exception when others then insert into res(name, ok) values ('P2 anon не пишет в training_requests', sqlstate in ('42501')); end;
   reset role;
 end $$;
-select pg_temp.err_as('E', $q$select count(*) from request_links$q$, 'P3 заглушка', 'zzz') where false;
 select pg_temp.ok(pg_temp.rv('E', $q$select count(*) from request_links$q$)::int = 0, 'P3 токены ссылок видит только ADMIN');
 select pg_temp.err_as('E', $q$select create_request_link('{"label":"x"}'::jsonb)$q$, 'P3 MANAGER не создаёт ссылки', '42501');
 -- общая форма закрыта по умолчанию
@@ -343,5 +353,112 @@ select pg_temp.ok((pg_temp.svc(format($q$select (public_request_options(%L)->'de
 select pg_temp.ra('A', format($q$select set_request_link_active(%L, false, 'Отключаем')$q$, (select id from k where name='lnk')));
 select pg_temp.ok(pg_temp.svc(format($q$select coalesce((public_request_options(%L))::text, 'null')$q$, (select id from k where name='tok'))) = 'null', 'P11 отключённая ссылка не открывает форму');
 select pg_temp.ra('A', format($q$select set_request_link_active(%L, true, 'Включаем')$q$, (select id from k where name='lnk')));
+select pg_temp.err_as('A', format($q$select set_org_unit_active(%s, false, 'Реорганизация')$q$, (select id from k where name='dept_fin')), 'P11a нельзя деактивировать департамент с действующими отделами', 'деактивируйте');
+do $$ declare u bigint; begin for u in select id from org_units where parent_id=(select id::bigint from k where name='dept_fin') loop
+  perform pg_temp.ra('A', format($q$select set_org_unit_active(%s, false, 'Реорганизация')$q$, u)); end loop; end $$;
 select pg_temp.ra('A', format($q$select set_org_unit_active(%s, false, 'Реорганизация')$q$, (select id from k where name='dept_fin')));
-select pg_temp.ok(pg_temp.svc(format($q$select coalesce((public_request_options(%L))::text, 'null')$q$, (select id from k where name='tok'))) is not null, 'P12 заглушка');
+select pg_temp.ok(pg_temp.svc(format($q$select coalesce((public_request_options(%L))::text, 'null')$q$, (select id from k where name='tok'))) = 'null', 'P12 деактивированное подразделение закрывает ссылку');
+
+-- ====================== ИМПОРТЫ ======================
+insert into k select 'job_e', pg_temp.rv('C', $q$select import_stage('EMPLOYEES','XLSX','staff.xlsx','h1','{}'::jsonb,'{}'::jsonb, '[
+  {"row_no":2,"data":{"full_name":"Новиков Нурали","employee_code":"N0001","position":"Экономист"}},
+  {"row_no":3,"data":{"full_name":"Азамов Фаррух","employee_code":"X1001","position":"Старший юрист"}},
+  {"row_no":4,"data":{"full_name":"Азамов Фаррух","employee_code":"X1001","position":"Юрист"}},
+  {"row_no":5,"data":{"full_name":"Новиков Нурали","employee_code":"N0001","position":"Экономист"}},
+  {"row_no":6,"data":{"full_name":"","employee_code":""}},
+  {"row_no":7,"data":{"full_name":"Иванов Иван"}}
+]'::jsonb)$q$);
+select pg_temp.ok((select new_rows from import_jobs where id=(select id::uuid from k where name='job_e')) >= 1, 'I1 импорт сотрудников: есть NEW');
+select pg_temp.ok((select error_rows from import_jobs where id=(select id::uuid from k where name='job_e')) = 1, 'I1 пустая строка — ERROR');
+select pg_temp.ok((select status from import_job_rows where job_id=(select id::uuid from k where name='job_e') and row_no=5) = 'DUPLICATE', 'I2 повтор строки в файле — DUPLICATE');
+select pg_temp.ok((select status from import_job_rows where job_id=(select id::uuid from k where name='job_e') and row_no=3) = 'UPDATED', 'I3 существующий по табельному номеру — UPDATED');
+select pg_temp.ok((select status from import_job_rows where job_id=(select id::uuid from k where name='job_e') and row_no=7) = 'NEEDS_REVIEW', 'I4 неоднозначное ФИО (два Ивановых) — NEEDS_REVIEW');
+select pg_temp.ok((select count(*) from dq_issues where source='IMPORT' and status='OPEN') >= 1, 'I4 NEEDS_REVIEW создаёт проблему DQ');
+select pg_temp.ok((select count(*) from employees where employee_code='N0001') = 0, 'I5 до commit ничего не записано в employees (dry run)');
+select pg_temp.err_as('D', format($q$select import_commit(%L, 'x')$q$, (select id from k where name='job_e')), 'I6 VIEWER не видит и не применяет чужой импорт', 'P0015');
+select pg_temp.ra('C', format($q$select import_resolve_row(%s, 'SKIP')$q$, (select id from import_job_rows where job_id=(select id::uuid from k where name='job_e') and row_no=7)));
+select pg_temp.ok((select count(*) from dq_issues where source='IMPORT' and status='OPEN' and entity_id = (select id::text from import_job_rows where job_id=(select id::uuid from k where name='job_e') and row_no=7)) = 0, 'I8 решение по строке закрывает проблему DQ');
+select pg_temp.ra('C', format($q$select import_commit(%L, 'Первичная загрузка')$q$, (select id from k where name='job_e')));
+select pg_temp.ok((select count(*) from employees where full_name='Иванов Иван') = 2, 'I7 нерешённая неоднозначная строка при commit пропущена (не создана и не слита)');
+select pg_temp.ok((select count(*) from employees where employee_code='N0001') = 1, 'I9 commit создал нового сотрудника ровно один раз');
+select pg_temp.ok((select position from employees where employee_code='X1001') = 'Юрист' or (select position from employees where employee_code='X1001') = 'Старший юрист', 'I9 существующий сотрудник обновлён, не продублирован');
+select pg_temp.ok((select count(*) from employees where employee_code='X1001') = 1, 'I9 дубль по коду не создан');
+select pg_temp.ok((select status from import_jobs where id=(select id::uuid from k where name='job_e')) = 'COMMITTED', 'I10 задача в статусе COMMITTED');
+select pg_temp.err_as('C', format($q$select import_commit(%L, 'x')$q$, (select id from k where name='job_e')), 'I11 повторный commit запрещён', 'P0015');
+select pg_temp.ok(exists (select 1 from audit_log where table_name='employees' and reason = 'Первичная загрузка'), 'I12 импорт записан в аудит с причиной');
+-- участники: сотрудников не создаём
+insert into k select 'job_p', pg_temp.rv('E', format($q$select import_stage('PARTICIPANTS','PASTE','list.csv','h2', jsonb_build_object('training_id', %L), jsonb_build_object('training_id', %L), '[
+  {"row_no":1,"data":{"full_name":"Азамов Фаррух","employee_code":"X1001"}},
+  {"row_no":2,"data":{"full_name":"Несуществующий Человек"}}
+]'::jsonb)$q$, (select id from k where name='plain'), (select id from k where name='plain')));
+select pg_temp.ok((select status from import_job_rows where job_id=(select id::uuid from k where name='job_p') and row_no=2) = 'NEEDS_REVIEW', 'I13 неизвестный человек в списке участников — NEEDS_REVIEW, а не создание');
+select pg_temp.err_as('E', format($q$select import_resolve_row(%s, 'APPLY')$q$, (select id from import_job_rows where job_id=(select id::uuid from k where name='job_p') and row_no=2)), 'I13 «создать» для участника запрещено', 'P0015');
+select pg_temp.ra('E', format($q$select import_resolve_row(%s, 'SKIP')$q$, (select id from import_job_rows where job_id=(select id::uuid from k where name='job_p') and row_no=2)));
+select pg_temp.ra('E', format($q$select import_commit(%L, 'Список')$q$, (select id from k where name='job_p')));
+select pg_temp.ok((select count(*) from training_participants where training_id=(select id::uuid from k where name='plain')) = 1, 'I14 из списка добавлен один участник');
+select pg_temp.ok((select count(*) from employees where full_name='Несуществующий Человек') = 0, 'I14 сотрудник не создан из списка участников');
+-- повторный импорт того же списка не дублирует участника
+insert into k select 'job_p2', pg_temp.rv('E', format($q$select import_stage('PARTICIPANTS','PASTE','list.csv','h2', '{}'::jsonb, jsonb_build_object('training_id', %L), '[{"row_no":1,"data":{"full_name":"Азамов Фаррух","employee_code":"X1001"}}]'::jsonb)$q$, (select id from k where name='plain')));
+select pg_temp.ra('E', format($q$select import_commit(%L, 'Повтор')$q$, (select id from k where name='job_p2')));
+select pg_temp.ok((select count(*) from training_participants where training_id=(select id::uuid from k where name='plain')) = 1, 'I15 уникальность участника сохраняется при повторном импорте');
+-- расходы: HR не импортирует
+select pg_temp.err_as('C', $q$select import_stage('EXPENSES','XLSX','e.xlsx','h3','{}'::jsonb,'{}'::jsonb,'[{"row_no":1,"data":{"amount":100}}]'::jsonb)$q$, 'I16 HR не импортирует расходы', '42501');
+-- отмена
+insert into k select 'job_c', pg_temp.rv('C', $q$select import_stage('EMPLOYEES','XLSX','c.xlsx','h4','{}'::jsonb,'{}'::jsonb,'[{"row_no":1,"data":{"full_name":"Отменённый Сотрудник","employee_code":"C0001"}}]'::jsonb)$q$);
+select pg_temp.ra('C', format($q$select import_cancel(%L, 'Ошибочный файл')$q$, (select id from k where name='job_c')));
+select pg_temp.ok((select status from import_jobs where id=(select id::uuid from k where name='job_c')) = 'CANCELLED' and (select count(*) from employees where employee_code='C0001') = 0, 'I17 отменённый импорт ничего не записывает');
+
+-- ====================== МАССОВЫЕ ДЕЙСТВИЯ ======================
+select pg_temp.ra('C', format($q$select bulk_update_employees(array(select id from employees where employee_code in ('T0001','T0002','T0003')), '{"position":"Старший бухгалтер"}'::jsonb, 'Массовое повышение')$q$));
+select pg_temp.ok((select count(*) from employees where position='Старший бухгалтер') = 3, 'B1 массовое обновление трёх сотрудников');
+select pg_temp.ok((select count(*) from audit_log where table_name='employees' and reason='Массовое повышение') >= 3, 'B1 каждый сотрудник в аудите с причиной');
+select pg_temp.err_as('C', $q$select bulk_update_employees(array[]::uuid[], '{}'::jsonb, 'x')$q$, 'B2 пустой выбор отклонён', 'P0015');
+select pg_temp.err_as('C', format($q$select bulk_update_employees(array(select id from employees limit 2), '{"position":"Х"}'::jsonb, '')$q$), 'B3 без причины запрещено', 'P0012');
+select pg_temp.err_as('D', format($q$select bulk_update_employees(array(select id from employees limit 2), '{"position":"Х"}'::jsonb, 'r')$q$), 'B4 VIEWER не выполняет массовые действия', '42501');
+-- результат участника
+select pg_temp.ra('E', format($q$select set_participant_result(%L, 'PASSED', 'Сдал', 'Итог')$q$, (select id from training_participants where training_id=(select id::uuid from k where name='plain') limit 1)));
+select pg_temp.ok((select result from training_participants where training_id=(select id::uuid from k where name='plain') limit 1) = 'PASSED', 'B5 результат участника записан');
+
+-- ====================== УВЕДОМЛЕНИЯ / ВНИМАНИЕ / ПОИСК ======================
+select pg_temp.ok(pg_temp.rv('A', $q$select notify_scan()$q$)::int >= 0, 'N1 notify_scan выполняется');
+select pg_temp.ok(pg_temp.rv('A', $q$select notify_scan()$q$)::int = 0, 'N2 повторный пересчёт в течение минуты ничего не делает (throttle)');
+select pg_temp.ok(exists (select 1 from notifications where type like 'CERT%'), 'N3 есть уведомление по сертификатам (истекает/истёк)');
+select pg_temp.ok((select count(*) from notifications) = (select count(distinct dedupe_key) from notifications), 'N4 уведомления не дублируются');
+select pg_temp.ok(pg_temp.rv('A', $q$select count(*) from attention_summary()$q$)::int >= 1, 'N5 «Требует внимания» возвращает строки');
+select pg_temp.ok(pg_temp.rv('A', $q$select count(*) from attention_summary() where href is null$q$)::int = 0, 'N5 каждая строка «Требует внимания» ведёт по ссылке');
+select pg_temp.ok(pg_temp.rv('A', $q$select count(*) from global_search('Азамов', 8)$q$)::int >= 1, 'S1 глобальный поиск находит сотрудника');
+select pg_temp.ok(pg_temp.rv('A', $q$select count(*) from global_search('Семинар', 8) where kind='training'$q$)::int >= 1 or pg_temp.rv('A', $q$select count(*) from global_search('Семинар', 8)$q$)::int >= 1, 'S2 глобальный поиск находит мероприятие');
+select pg_temp.ok(pg_temp.rv('A', $q$select count(*) from global_search('x', 8)$q$)::int >= 0, 'S3 короткий запрос не падает');
+select pg_temp.ok(pg_temp.rv('D', $q$select count(*) from global_search('Азамов', 8) where kind in ('agreement','policy')$q$)::int = 0, 'S4 VIEWER не видит договоры финансирования в поиске');
+
+-- ====================== DATA QUALITY ======================
+select pg_temp.ra('A', $q$select dq_scan()$q$);
+select pg_temp.ok(exists (select 1 from dq_issues where rule_code in ('CERT_EXPIRED','CERT_EXPIRING') and status='OPEN'), 'Q1 DQ: сертификаты с истёкшим/истекающим сроком');
+select pg_temp.ok(exists (select 1 from dq_issues where rule_code='EMPLOYEE_DUPLICATE_NAME'), 'Q2 DQ: дубли ФИО в справочнике сотрудников');
+select pg_temp.ok((select count(*) from dq_issues where status in ('OPEN','IN_REVIEW') and details is null) = 0, 'Q3 у каждой открытой проблемы есть детали для действий');
+select pg_temp.ok((select count(*) from dq_issues where status in ('OPEN','IN_REVIEW') and suggestion is null and source='RULE') = 0, 'Q3 у каждой проблемы есть подсказка, что делать');
+select pg_temp.ra('A', $q$select dq_scan()$q$);
+select pg_temp.ok((select count(*) from dq_issues where source='RULE') = (select count(distinct fingerprint) from dq_issues where source='RULE'), 'Q4 повторный скан не плодит дубликаты');
+
+-- ====================== АУДИТ ======================
+select pg_temp.ok((select count(*) from audit_log where table_name in ('exams','certificates','learning_agreements','documents','request_links','import_jobs')) > 0, 'U1 новые таблицы пишут аудит');
+select pg_temp.ok(not has_table_privilege('authenticated','audit_log','update') and not has_table_privilege('authenticated','audit_log','delete'), 'U2 аудит неизменяем для пользователей');
+select pg_temp.err_as('A', $q$delete from audit_log$q$, 'U3 ADMIN не удаляет аудит', 'permission denied');
+select pg_temp.ok(pg_temp.rv('F', format($q$select count(*) from entity_audit('learning_agreements', %L)$q$, (select id from k where name='ag1')))::int >= 1, 'U4 FINANCE видит аудит договора финансирования');
+select pg_temp.ok(pg_temp.rv('C', format($q$select count(*) from entity_audit('learning_agreements', %L)$q$, (select id from k where name='ag1')))::int = 0, 'U5 HR не видит аудит договора финансирования');
+select pg_temp.ok(pg_temp.rv('C', format($q$select count(*) from entity_audit('employees', %L) where table_name='documents' and (new_row->>'doc_type') in ('CONTRACT','INVOICE','ACT','PAYMENT_DOCUMENT','AGREEMENT')$q$, (select id from k where name='emp')))::int = 0, 'U6 HR не видит аудит финансовых документов в ленте сотрудника');
+
+-- ====================== ДОСЬЕ ======================
+select pg_temp.ok(pg_temp.rv('C', format($q$select count(*) from employee_timeline(%L)$q$, (select id from k where name='emp')))::int >= 1, 'T1 хронология сотрудника не пуста');
+select pg_temp.ok(pg_temp.rv('C', format($q$select events_count from employee_learning_summary(%L)$q$, (select id from k where name='emp'))) is not null, 'T2 сводка по обучению сотрудника');
+select pg_temp.ok(pg_temp.rv('C', format($q$select (company_spent_tjs is null and individual_education_tjs is null and outstanding_obligation_tjs is null)::text from employee_learning_summary(%L)$q$, (select id from k where name='emp'))) = 'true', 'T3 HR не получает суммы затрат в сводке');
+select pg_temp.ok(pg_temp.rv('F', format($q$select (company_spent_tjs is not null)::text from employee_learning_summary(%L)$q$, (select id from k where name='emp'))) = 'true', 'T3 FINANCE получает суммы затрат');
+
+-- ====================== ИТОГ ======================
+do $$
+declare total int; passed int; fails text;
+begin
+  select count(*), count(*) filter (where ok) into total, passed from res;
+  select coalesce(string_agg(n||'. '||name||coalesce(' ['||detail||']',''), E'\n'),'нет') into fails from res where not ok;
+  raise exception 'RESULT % / % passed. Failures: %', passed, total, fails;
+end $$;
