@@ -15,7 +15,7 @@ export const optReason = z.string().trim().max(500).nullish().transform((v) => (
 
 export const TRAINING_FORMATS = ["ONLINE", "OFFLINE", "BLENDED"] as const;
 export const TRAINING_KINDS = ["INTERNAL", "EXTERNAL", "UNSPECIFIED"] as const;
-export const TRAINING_STATUSES = ["PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "POSTPONED", "NOT_HELD"] as const;
+export const TRAINING_STATUSES = ["DRAFT", "PLANNED", "APPROVED", "REGISTERED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "POSTPONED", "NOT_HELD"] as const;
 export const REQUEST_STATUSES = ["NEW", "REVIEW", "APPROVED", "REJECTED", "PLANNED", "DONE", "CARRIED_FORWARD"] as const;
 export const UNPLANNED_REASONS = ["URGENT_BUSINESS_NEED", "MANAGEMENT_REQUEST", "LEGAL_REQUIREMENT", "NEW_PROJECT", "EMPLOYEE_NEED", "EXTERNAL_OPPORTUNITY", "OTHER"] as const;
 export const ATTENDANCE_STATUSES = ["PRESENT", "ABSENT", "EXCUSED"] as const;

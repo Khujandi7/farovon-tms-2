@@ -3,7 +3,10 @@ import type { Database } from "@/types/database";
 type Enums = Database["public"]["Enums"];
 
 export const TRAINING_STATUS_LABELS: Record<Enums["training_status"], string> = {
+  DRAFT: "Черновик",
   PLANNED: "Запланировано",
+  APPROVED: "Согласовано",
+  REGISTERED: "Регистрация открыта",
   IN_PROGRESS: "Идёт",
   COMPLETED: "Проведено",
   CANCELLED: "Отменено",
@@ -12,7 +15,10 @@ export const TRAINING_STATUS_LABELS: Record<Enums["training_status"], string> = 
 };
 
 export const TRAINING_STATUS_VARIANT: Record<Enums["training_status"], "success" | "brand" | "secondary" | "warning" | "outline"> = {
+  DRAFT: "outline",
   PLANNED: "secondary",
+  APPROVED: "brand",
+  REGISTERED: "brand",
   IN_PROGRESS: "brand",
   COMPLETED: "success",
   CANCELLED: "outline",
