@@ -15,7 +15,7 @@ export const optReason = z.string().trim().max(500).nullish().transform((v) => (
 
 export const TRAINING_FORMATS = ["ONLINE", "OFFLINE", "BLENDED"] as const;
 export const TRAINING_KINDS = ["INTERNAL", "EXTERNAL", "UNSPECIFIED"] as const;
-export const TRAINING_STATUSES = ["PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "POSTPONED", "NOT_HELD"] as const;
+export const TRAINING_STATUSES = ["DRAFT", "PLANNED", "APPROVED", "REGISTERED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "POSTPONED", "NOT_HELD"] as const;
 export const REQUEST_STATUSES = ["NEW", "REVIEW", "APPROVED", "REJECTED", "PLANNED", "DONE", "CARRIED_FORWARD"] as const;
 export const UNPLANNED_REASONS = ["URGENT_BUSINESS_NEED", "MANAGEMENT_REQUEST", "LEGAL_REQUIREMENT", "NEW_PROJECT", "EMPLOYEE_NEED", "EXTERNAL_OPPORTUNITY", "OTHER"] as const;
 export const ATTENDANCE_STATUSES = ["PRESENT", "ABSENT", "EXCUSED"] as const;
@@ -38,6 +38,11 @@ export const createTrainingSchema = z
     participants_planned: intOrNull,
     description: optText(2000),
     comment: optText(1000),
+    event_type_id: z.preprocess((v) => (v === "" || v === null || v === undefined ? null : v), z.coerce.number().int().positive().nullable()),
+    event_type_code: z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,39}$/, { message: "Неверный код типа" }).nullish().transform((v) => v ?? null),
+    provider_id: z.preprocess((v) => (v === "" || v === null || v === undefined ? null : v), uuid.nullable()),
+    organizer: optText(300),
+    status: z.enum(["DRAFT", "PLANNED"]).nullish().transform((v) => v ?? null),
   })
   .refine((v) => !v.end_date || v.end_date >= v.start_date, { path: ["end_date"], message: "Окончание раньше начала" });
 export type CreateTrainingInput = z.input<typeof createTrainingSchema>;
@@ -56,9 +61,36 @@ export const TRAINING_FIELDS = {
   comment: optText(1000),
   description: optText(2000),
   participants_planned: intOrNull,
+  event_type_id: z.coerce.number({ message: "Выберите тип" }).int().positive({ message: "Выберите тип" }),
+  provider_id: z.preprocess((v) => (v === "" || v === null || v === undefined ? null : v), uuid.nullable()),
+  organizer: optText(300),
+  result_summary: optText(2000),
 } as const;
 export type TrainingField = keyof typeof TRAINING_FIELDS;
-export const TRAINING_REASON_REQUIRED: readonly TrainingField[] = ["status", "hours", "start_date", "end_date"];
+export const TRAINING_REASON_REQUIRED: readonly TrainingField[] = ["status", "hours", "start_date", "end_date", "event_type_id"];
+
+export const PARTICIPANT_RESULTS = ["COMPLETED", "NOT_COMPLETED", "PASSED", "FAILED"] as const;
+export type ParticipantResult = (typeof PARTICIPANT_RESULTS)[number];
+
+/** Справочник типов мероприятий (только ADMIN). Код — латиница/цифры/«_», у системных типов не меняется. */
+export const eventTypeSchema = z.object({
+  id: z.coerce.number().int().positive().nullish().transform((v) => v ?? null),
+  code: z.string().trim().toUpperCase().regex(/^[A-Z][A-Z0-9_]{1,39}$/, { message: "Код: латиница, цифры и «_», 2–40 символов" }).nullish().transform((v) => v ?? null),
+  name: text(200).min(2, { message: "Введите название типа" }),
+  is_group: z.boolean().optional(),
+  sort_order: z.coerce.number().int().min(0).max(32000).optional(),
+  is_active: z.boolean().optional(),
+});
+
+export const PROVIDER_KINDS = ["INTERNAL", "EXTERNAL", "ORGANIZATION"] as const;
+export const providerSchema = z.object({
+  id: uuid.nullish().transform((v) => v ?? null),
+  name: text(200).min(2, { message: "Введите название" }),
+  kind: z.enum(PROVIDER_KINDS).optional(),
+  contact: optText(300),
+  note: optText(1000),
+  is_active: z.boolean().optional(),
+});
 
 export const REQUEST_FIELDS = {
   topic: text(300).min(2, { message: "Введите тему" }),
@@ -102,7 +134,13 @@ export const EMPLOYEE_FIELDS = {
   department_id: REQUEST_FIELDS.department_id,
   unit_id: REQUEST_FIELDS.unit_id,
   is_active: z.coerce.boolean(),
+  employee_code: optText(50),
+  hire_date: isoDate.nullish().transform((v) => v || null),
+  termination_date: isoDate.nullish().transform((v) => v || null),
+  phone: optText(50),
+  email: z.string().trim().max(200).email({ message: "Некорректный e-mail" }).nullish().or(z.literal("")).transform((v) => v || null),
 } as const;
+export const EMPLOYEE_REASON_FIELDS = ["is_active", "employee_code", "termination_date"] as const;
 export type EmployeeField = keyof typeof EMPLOYEE_FIELDS;
 
 export const sessionSchema = z

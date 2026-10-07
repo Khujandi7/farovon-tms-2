@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarRange, GraduationCap } from "lucide-react";
 import { SectionPage } from "@/components/common/section-page";
 import { EmptyState, ErrorState } from "@/components/common/states";
+import { AttentionPanel } from "@/components/dashboard/attention-panel";
 import { ChartCard } from "@/components/dashboard/chart-card";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { YearFilter } from "@/components/dashboard/year-filter";
@@ -43,6 +44,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
         return (
           <div className="space-y-6">
+            <AttentionPanel />
             <section aria-labelledby="kpi-title" className="space-y-3">
               <h2 id="kpi-title" className="sr-only">Показатели {year} года</h2>
               {kpiResult.error || !kpiRow ? (

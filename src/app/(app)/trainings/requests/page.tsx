@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState, ErrorState, ForbiddenState } from "@/components/common/states";
 import { NewRequestDialog } from "@/components/trainings/new-request-dialog";
@@ -51,7 +51,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Заявки на обучение" description="Плановые заявки. Тренинг с привязанной заявкой считается плановым." actions={canCreate ? <NewRequestDialog defaultYear={new Date().getUTCFullYear()} /> : undefined} />
+      <PageHeader breadcrumbs={[{ label: "Обучения", href: "/trainings" }, { label: "Заявки" }]} backHref="/trainings" backLabel="К списку обучений" title="Заявки на обучение" description="Плановые заявки. Тренинг с привязанной заявкой считается плановым." actions={canCreate ? <NewRequestDialog defaultYear={new Date().getUTCFullYear()} /> : undefined} />
       <form method="get" className="flex flex-wrap items-end gap-2" role="search" aria-label="Фильтры заявок">
         <label className="grid gap-1 text-xs text-muted-foreground">
           Год
@@ -121,9 +121,6 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           </Table>
         </div>
       )}
-      <Link href="/trainings" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" aria-hidden="true" /> К списку обучений
-      </Link>
     </div>
   );
 }

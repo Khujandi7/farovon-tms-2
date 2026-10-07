@@ -7,7 +7,8 @@
 - **Фаза 1.5** (закрытие архитектурных вопросов перед интерфейсом) — выполнена, M8 применена в Production.
 - **Фаза 2.1** (фундамент веб-приложения: Next.js, авторизация, оболочка, Dashboard) — выполнена, в `main`.
 - **Фаза 2.2** (пользователи и роли: приглашение, роли, деактивация, сброс пароля) — в ветке `phase-2-2`; M9 применяет владелец.
-- Phase 3A (обучения, заявки, редактирование, Data Quality) — в ветке `phase-3-training-import`; Phase 3B — импорт Google Sheets. См. PROJECT_CONTEXT.md.
+- Phase 3A (обучения, заявки, редактирование, Data Quality) — в main.
+- Phase 3A.1 (досье сотрудника, Learning Events, экзамены, сертификаты, финансирование, документы, импорт, публичный портал заявок, уведомления, поиск) — ветка `phase-3a-1-learning-dossier`. Phase 3B — импорт Google Sheets. См. PROJECT_CONTEXT.md.
 
 ## Веб-приложение (Phase 2.1)
 Next.js 16 (App Router) · React 19 · TypeScript strict · Tailwind CSS 4 · shadcn/ui (Radix) · Supabase SSR · Zod · TanStack Table · Lucide · Vitest · Playwright.

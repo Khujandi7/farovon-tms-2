@@ -18,11 +18,17 @@ $P -d postgres -c "drop database if exists tms_test" -c "create database tms_tes
 $P -d tms_test <<'SQL'
 create schema auth;
 create table auth.users (id uuid primary key, email text);
+create schema storage;
+create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, owner uuid, created_at timestamptz default now());
+alter table storage.objects enable row level security;
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true),'')::uuid $$;
 do $$ begin create role authenticated nologin; exception when duplicate_object then null; end $$;
 do $$ begin create role anon nologin; exception when duplicate_object then null; end $$;
 do $$ begin create role service_role nologin bypassrls; exception when duplicate_object then null; end $$;
-grant usage on schema public, auth to authenticated, anon, service_role;
+grant usage on schema public, auth, storage to authenticated, anon, service_role;
+grant select, insert on storage.objects to authenticated;
+grant select on storage.buckets to authenticated;
 alter default privileges in schema public grant all on tables to authenticated, anon, service_role;
 alter default privileges in schema public grant all on sequences to authenticated, anon, service_role;
 alter default privileges in schema public grant execute on routines to authenticated, anon, service_role;
@@ -41,6 +47,9 @@ if [ -f "$DIR/tests/phase2_2_tests.sql" ]; then
 fi
 if [ -f "$DIR/tests/phase3_tests.sql" ]; then
   echo "== ТЕСТЫ Phase 3A (M10–M13, только локально) =="; run_test "$DIR/tests/phase3_tests.sql"
+fi
+if [ -f "$DIR/tests/phase3a1_tests.sql" ]; then
+  echo "== ТЕСТЫ Phase 3A.1 (M14–M20, только локально) =="; run_test "$DIR/tests/phase3a1_tests.sql"
 fi
 echo "== ОТПЕЧАТОК СТРУКТУРЫ =="
 psql -U postgres -d tms_test -At -F ' | ' -f "$DIR/tests/fingerprint.sql"

@@ -6,7 +6,9 @@ import { callRpc, fail, requireRole, type Result } from "@/lib/workflows/server"
 import { WF_ROLES } from "@/lib/workflows/roles";
 import { createClient } from "@/lib/supabase/server";
 import { WF_ERR, workflowErrorMessage } from "@/lib/workflows/errors";
+import { parseMatchResult, type MatchRow } from "@/lib/trainings/name-list";
 import {
+  PARTICIPANT_RESULTS,
   TRAINING_FIELDS,
   TRAINING_REASON_REQUIRED,
   attendanceUpdatesSchema,
@@ -255,3 +257,109 @@ export async function searchEmployees(query: string): Promise<EmployeeOption[]> 
   }
 }
 
+
+/** Выполняет задачи пачками по 10, чтобы длинные списки не шли строго по одной. */
+async function inChunks<T, R>(items: T[], task: (item: T) => Promise<R>, size = 10): Promise<R[]> {
+  const out: R[] = [];
+  for (let i = 0; i < items.length; i += size) out.push(...(await Promise.all(items.slice(i, i + size).map(task))));
+  return out;
+}
+
+/** Сопоставление вставленных ФИО со справочником (match_names). Ничего не создаёт и не добавляет. */
+export async function matchParticipantNames(input: { names: string[] }): Promise<Result<{ rows: MatchRow[] }>> {
+  const actor = await requireRole(WF_ROLES.participants);
+  if (!actor.ok) return actor;
+  const p = z.object({ names: z.array(z.string().trim().min(1).max(300)).min(1, { message: "Вставьте хотя бы одно ФИО" }).max(3000, { message: "Не больше 3000 строк за раз" }) }).safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid);
+  const res = await callRpc("match_names", { p_names: p.data.names });
+  if (!res.ok) return res;
+  return { ok: true, data: { rows: parseMatchResult(res.data) } };
+}
+
+/** Явное создание сотрудника из строки списка (кнопка «Создать в справочнике»). Автоматически не вызывается. */
+export async function createEmployeeFromList(input: { fullName: string }): Promise<Result<{ id: string; fullName: string }>> {
+  const actor = await requireRole(WF_ROLES.employee);
+  if (!actor.ok) return actor;
+  const p = z.object({ fullName: z.string().trim().min(2, { message: "Введите ФИО" }).max(200) }).safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid);
+  const res = await callRpc("create_employee", { p: { full_name: p.data.fullName } as unknown as Json, p_reason: "Создан из списка участников" });
+  if (!res.ok) return res;
+  revalidatePath("/employees");
+  return { ok: true, message: "Сотрудник создан в справочнике.", data: { id: res.data as string, fullName: p.data.fullName } };
+}
+
+/** Массовое удаление из участников с одной причиной. Часть удалений может не пройти — об этом сообщаем. */
+export async function removeParticipantsBulk(input: { trainingId: string; ids: string[]; reason: string }): Promise<Result<{ removed: number }>> {
+  const actor = await requireRole(WF_ROLES.participants);
+  if (!actor.ok) return actor;
+  const p = z.object({ trainingId: uuid, ids: z.array(uuid).min(1, { message: "Выберите участников" }).max(500, { message: "Не больше 500 за раз" }), reason }).safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid, fieldErrorsFrom(p.error));
+  const results = await inChunks(p.data.ids, (id) => callRpc("remove_participant", { p_participant: id, p_reason: p.data.reason }));
+  const removed = results.filter((r) => r.ok).length;
+  refresh(p.data.trainingId);
+  const firstError = results.find((r): r is Extract<typeof r, { ok: false }> => !r.ok);
+  if (removed === 0 && firstError) return fail(firstError.error);
+  const failed = results.length - removed;
+  return { ok: true, message: failed ? `Удалено: ${removed}. Не удалось: ${failed}${firstError ? ` (${firstError.error})` : ""}.` : `Удалено из участников: ${removed}.`, data: { removed } };
+}
+
+/** Результат участников (set_participant_result). result = null снимает результат. */
+export async function setParticipantResults(input: { trainingId: string; ids: string[]; result: string | null; note?: string | null; reason: string }): Promise<Result<{ changed: number }>> {
+  const actor = await requireRole(WF_ROLES.participants);
+  if (!actor.ok) return actor;
+  const p = z
+    .object({ trainingId: uuid, ids: z.array(uuid).min(1, { message: "Выберите участников" }).max(500, { message: "Не больше 500 за раз" }), result: z.enum(PARTICIPANT_RESULTS).nullable(), note: z.string().trim().max(500).nullish(), reason })
+    .safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid, fieldErrorsFrom(p.error));
+  const results = await inChunks(p.data.ids, (id) =>
+    callRpc("set_participant_result", { p_participant: id, p_result: p.data.result as string, p_note: (p.data.note ?? null) as string, p_reason: p.data.reason }),
+  );
+  const changed = results.filter((r) => r.ok).length;
+  refresh(p.data.trainingId);
+  const firstError = results.find((r): r is Extract<typeof r, { ok: false }> => !r.ok);
+  if (changed === 0 && firstError) return fail(firstError.error);
+  const failed = results.length - changed;
+  return { ok: true, message: failed ? `Результат записан: ${changed}. Не удалось: ${failed}${firstError ? ` (${firstError.error})` : ""}.` : `Результат записан: ${changed}.`, data: { changed } };
+}
+
+const individualSchema = z
+  .object({
+    employeeId: uuid,
+    title: z.string().trim().min(2, { message: "Введите название" }).max(300),
+    start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Дата в формате ГГГГ-ММ-ДД" }),
+    end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().transform((v) => v || null),
+    hours: z.coerce.number({ message: "Введите число" }).positive({ message: "Часы должны быть больше 0" }).max(10000),
+    provider_id: z.preprocess((v) => (v === "" || v === null || v === undefined ? null : v), uuid.nullable()),
+    organizer: z.string().trim().max(300).nullish().transform((v) => v || null),
+    description: z.string().trim().max(2000).nullish().transform((v) => v || null),
+  })
+  .refine((v) => !v.end_date || v.end_date >= v.start_date, { path: ["end_date"], message: "Окончание раньше начала" });
+
+/** Индивидуальное обучение сотрудника: мероприятие типа INDIVIDUAL_EDUCATION с одним участником. Расходы вносятся в обычном потоке расходов. */
+export async function createIndividualEducation(input: unknown): Promise<Result<{ id: string }>> {
+  const actor = await requireRole(WF_ROLES.training);
+  if (!actor.ok) return actor;
+  const p = individualSchema.safeParse(input);
+  if (!p.success) return invalid(p.error);
+  const created = await callRpc("create_training", {
+    p: {
+      title: p.data.title,
+      start_date: p.data.start_date,
+      end_date: p.data.end_date,
+      hours: p.data.hours,
+      event_type_code: "INDIVIDUAL_EDUCATION",
+      provider_id: p.data.provider_id,
+      organizer: p.data.organizer,
+      description: p.data.description,
+      participants_planned: 1,
+    } as unknown as Json,
+    p_reason: "Индивидуальное обучение",
+  });
+  if (!created.ok) return created;
+  const id = created.data as string;
+  const added = await callRpc("add_participants", { p_training: id, p_employees: [p.data.employeeId] });
+  refresh(id);
+  revalidatePath(`/employees/${p.data.employeeId}`);
+  if (!added.ok) return fail(`Мероприятие создано, но сотрудника добавить не удалось: ${added.error} Откройте мероприятие и добавьте участника.`);
+  return { ok: true, message: "Индивидуальное обучение добавлено.", data: { id } };
+}

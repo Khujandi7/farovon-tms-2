@@ -13,8 +13,10 @@ import { createTraining } from "@/app/(app)/trainings/actions";
 import { TRAINING_FORMAT_OPTIONS, TRAINING_KIND_OPTIONS, UNPLANNED_REASON_OPTIONS } from "@/lib/labels";
 
 export type RequestOption = { id: string; label: string };
+export type TypeOption = { id: number; code: string; name: string };
+export type ProviderOpt = { id: string; name: string };
 
-export function TrainingForm({ requests }: { requests: RequestOption[] }) {
+export function TrainingForm({ requests, eventTypes = [], providers = [] }: { requests: RequestOption[]; eventTypes?: TypeOption[]; providers?: ProviderOpt[] }) {
   const router = useRouter();
   const { notify } = useToast();
   const [pending, startTransition] = useTransition();
@@ -39,6 +41,10 @@ export function TrainingForm({ requests }: { requests: RequestOption[] }) {
         unplanned_reason: requestId ? null : fd.get("unplanned_reason") || null,
         participants_planned: fd.get("participants_planned"),
         description: fd.get("description"),
+        event_type_id: fd.get("event_type_id") || null,
+        provider_id: fd.get("provider_id") || null,
+        organizer: fd.get("organizer"),
+        status: fd.get("status") || null,
       });
       if (result.ok) {
         notify(true, result.message ?? "Тренинг создан.");
@@ -63,6 +69,28 @@ export function TrainingForm({ requests }: { requests: RequestOption[] }) {
       <FormAlert error={error} />
       <Field id="title" label="Название *" error={fieldErrors.title} disabled={pending} maxLength={300} autoComplete="off" />
       <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-2">
+          <Label htmlFor="event_type_id">Тип мероприятия</Label>
+          <Select id="event_type_id" name="event_type_id" defaultValue={eventTypes.find((t) => t.code === "TRAINING")?.id ?? ""} disabled={pending} data-testid="event-type-select">
+            {eventTypes.length === 0 && <option value="">Обучение (по умолчанию)</option>}
+            {eventTypes.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </Select>
+          {fieldErrors.event_type_id && <p className="text-xs text-destructive">{fieldErrors.event_type_id}</p>}
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="provider_id">Провайдер</Label>
+          <Select id="provider_id" name="provider_id" defaultValue="" disabled={pending}>
+            <option value="">— не выбран —</option>
+            {providers.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </Select>
+        </div>
+        <Field id="organizer" label="Организатор" disabled={pending} maxLength={300} autoComplete="off" hint="Если не совпадает с провайдером" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
         <Field id="start_date" label="Дата начала *" type="date" error={fieldErrors.start_date} disabled={pending} />
         <Field id="end_date" label="Дата окончания" type="date" error={fieldErrors.end_date} disabled={pending} hint="Пусто — один день" />
         <Field id="hours" label="Часы *" inputMode="decimal" error={fieldErrors.hours} disabled={pending} hint="Позже считается по заходам" />
@@ -77,7 +105,7 @@ export function TrainingForm({ requests }: { requests: RequestOption[] }) {
           </Select>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="kind">Тип</Label>
+          <Label htmlFor="kind">Внутреннее / внешнее</Label>
           <Select id="kind" name="kind" defaultValue="UNSPECIFIED" disabled={pending}>
             {TRAINING_KIND_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -85,6 +113,13 @@ export function TrainingForm({ requests }: { requests: RequestOption[] }) {
           </Select>
         </div>
         <Field id="participants_planned" label="Участников по плану" inputMode="numeric" error={fieldErrors.participants_planned} disabled={pending} />
+      </div>
+      <div className="grid gap-2 sm:max-w-xs">
+        <Label htmlFor="status">Начальный статус</Label>
+        <Select id="status" name="status" defaultValue="PLANNED" disabled={pending}>
+          <option value="PLANNED">Запланировано</option>
+          <option value="DRAFT">Черновик</option>
+        </Select>
       </div>
       <Field id="location" label="Место проведения" disabled={pending} maxLength={300} />
       <div className="grid gap-4 sm:grid-cols-2">

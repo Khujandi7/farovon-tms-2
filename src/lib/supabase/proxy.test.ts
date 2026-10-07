@@ -45,6 +45,21 @@ describe("proxy: защита маршрутов", () => {
     expect(res.headers.get("location")).toBeNull();
   });
 
+  it("публичный портал заявок открыт для анонима без обращения к Auth", async () => {
+    for (const path of ["/request", "/request/" + "ab".repeat(24)]) {
+      const res = await updateSession(req(path));
+      expect(res.headers.get("location")).toBeNull();
+    }
+    expect(createServerClient).not.toHaveBeenCalled();
+  });
+
+  it("похожие на портал пути остаются закрытыми", async () => {
+    for (const path of ["/requests", "/settings/request-links"]) {
+      const res = await updateSession(req(path));
+      expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    }
+  });
+
   it("недействительный токен = аноним", async () => {
     getClaims.mockResolvedValue({ data: null, error: new Error("invalid JWT") });
     const res = await updateSession(req("/dashboard", AUTH));

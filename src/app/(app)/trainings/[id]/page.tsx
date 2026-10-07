@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarCheck, Clock, Coins, History, Users } from "lucide-react";
+import { CalendarCheck, Clock, Coins, History, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { ErrorState, ForbiddenState } from "@/components/common/states";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { AuditTimeline } from "@/components/trainings/audit-timeline";
 import { ExpensesPanel, type ExpenseRow } from "@/components/trainings/expenses-panel";
 import { ParticipantsPanel, type ParticipantRow } from "@/components/trainings/participants-panel";
 import { RequestLinkPanel } from "@/components/trainings/request-link-panel";
+import { StatusControl } from "@/components/trainings/status-control";
 import { SessionsPanel, type SessionRow } from "@/components/trainings/sessions-panel";
 import { EditableField } from "@/components/workflow/editable-field";
 import { canAccessSection } from "@/lib/auth/roles";
@@ -26,12 +27,12 @@ import {
   TRAINING_KIND_LABELS,
   TRAINING_KIND_OPTIONS,
   TRAINING_STATUS_LABELS,
-  TRAINING_STATUS_OPTIONS,
   TRAINING_STATUS_VARIANT,
   UNPLANNED_REASON_LABELS,
   UNPLANNED_REASON_OPTIONS,
 } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
+import { loadEventTypes, loadProviders } from "@/lib/trainings/load-references";
 import { can } from "@/lib/workflows/roles";
 import { cn } from "@/lib/utils";
 
@@ -78,14 +79,19 @@ export default async function TrainingPage({ params, searchParams }: { params: P
     t.request_id ? supabase.from("training_requests").select("id, canonical_id, topic, plan_year").eq("id", t.request_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
   const userName = (uid: string | null) => users.data?.find((u) => u.id === uid)?.full_name ?? null;
+  const typeName = (await loadEventTypes({ includeInactive: true })).find((x) => x.id === t.event_type_id)?.name ?? null;
 
   return (
     <div className="space-y-5">
       <PageHeader
         title={t.title}
+        breadcrumbs={[{ label: "Обучения", href: "/trainings" }, { label: t.canonical_id }]}
+        backHref="/trainings"
+        backLabel="К списку обучений"
         description={`${t.canonical_id} · ${formatDateRange(t.start_date, t.end_date)}`}
         actions={
           <>
+            {typeName && <Badge variant="outline" data-testid="event-type-badge">{typeName}</Badge>}
             <Badge variant={TRAINING_STATUS_VARIANT[t.status]}>{TRAINING_STATUS_LABELS[t.status]}</Badge>
             {archived && <Badge variant="outline">В архиве</Badge>}
             {can(role, "training") && <ArchiveButton entity="training" id={t.id} archived={archived} subject={t.canonical_id} />}
@@ -121,9 +127,6 @@ export default async function TrainingPage({ params, searchParams }: { params: P
       {tab === "attendance" && <AttendanceTab id={id} canEdit={can(role, "attendance")} archived={archived} attendanceMode={v.attendance_mode ?? false} />}
       {tab === "expenses" && <ExpensesTab id={id} role={role} archived={archived} total={v.actual_tjs} perParticipant={perParticipant === null || perParticipant === undefined ? null : Number(perParticipant)} />}
       {tab === "audit" && <AuditTab id={id} role={role} />}
-      <Link href="/trainings" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" aria-hidden="true" /> К списку обучений
-      </Link>
     </div>
   );
 }
@@ -144,6 +147,9 @@ function Kpi({ icon: Icon, label, value, sub, testId }: { icon: typeof Users; la
 
 async function Overview({ t, canEdit, role, linked, createdBy, updatedBy }: { t: import("@/types/database").Database["public"]["Tables"]["trainings"]["Row"]; canEdit: boolean; role: import("@/lib/auth/roles").AppRole; linked: { id: string; canonical_id: string; topic: string; plan_year: number } | null; createdBy: string | null; updatedBy: string | null }) {
   const supabase = await createClient();
+  const [eventTypes, providers] = await Promise.all([loadEventTypes({ includeInactive: true }), loadProviders({ includeInactive: true })]);
+  const typeOptions = eventTypes.filter((x) => x.is_active || x.id === t.event_type_id).map((x) => ({ value: String(x.id), label: x.name }));
+  const providerOptions = [{ value: "", label: "— не выбран —" }, ...providers.filter((x) => x.is_active || x.id === t.provider_id).map((x) => ({ value: x.id, label: x.name }))];
   const [{ data: requests }, { data: sessionsCount }, lineage] = await Promise.all([
     canEdit
       ? supabase.from("training_requests").select("id, canonical_id, topic, plan_year").is("archived_at", null).order("plan_year", { ascending: false }).order("canonical_id", { ascending: false }).limit(300)
@@ -165,12 +171,15 @@ async function Overview({ t, canEdit, role, linked, createdBy, updatedBy }: { t:
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2">
             <EditableField {...f("title")} label="Название" value={t.title} />
-            <EditableField {...f("status")} label="Статус" kind="select" options={TRAINING_STATUS_OPTIONS} value={t.status} display={TRAINING_STATUS_LABELS[t.status]} reasonRequired />
+            <StatusControl trainingId={t.id} status={t.status} isAdmin={role === "ADMIN"} canEdit={canEdit} />
+            <EditableField {...f("event_type_id")} label="Тип мероприятия" kind="select" options={typeOptions} value={String(t.event_type_id)} display={eventTypes.find((x) => x.id === t.event_type_id)?.name} reasonRequired />
             <EditableField {...f("format")} label="Формат" kind="select" options={TRAINING_FORMAT_OPTIONS} value={t.format} display={TRAINING_FORMAT_LABELS[t.format]} />
-            <EditableField {...f("kind")} label="Тип" kind="select" options={TRAINING_KIND_OPTIONS} value={t.kind} display={TRAINING_KIND_LABELS[t.kind]} />
+            <EditableField {...f("kind")} label="Внутреннее / внешнее" kind="select" options={TRAINING_KIND_OPTIONS} value={t.kind} display={TRAINING_KIND_LABELS[t.kind]} />
             <EditableField {...f("start_date")} label="Начало" kind="date" value={t.start_date} display={formatDate(t.start_date)} reasonRequired canEdit={canEdit && !hasSessions} hint={hasSessions ? "Считается по заходам" : undefined} />
             <EditableField {...f("end_date")} label="Окончание" kind="date" value={t.end_date} display={formatDate(t.end_date)} reasonRequired canEdit={canEdit && !hasSessions} />
             <EditableField {...f("hours")} label="Часы программы" kind="number" value={t.hours} display={formatNumber(t.hours)} reasonRequired canEdit={canEdit && !hasSessions} hint={hasSessions ? "Считается по заходам" : undefined} />
+            <EditableField {...f("provider_id")} label="Провайдер" kind="select" options={providerOptions} value={t.provider_id ?? ""} display={providers.find((x) => x.id === t.provider_id)?.name} />
+            <EditableField {...f("organizer")} label="Организатор" value={t.organizer} />
             <EditableField {...f("location")} label="Место" value={t.location} />
             <EditableField {...f("participants_planned")} label="Участников по плану" kind="number" inputMode="numeric" value={t.participants_planned} />
             {t.source_type === "UNPLANNED" && (
@@ -178,6 +187,9 @@ async function Overview({ t, canEdit, role, linked, createdBy, updatedBy }: { t:
             )}
             <div className="sm:col-span-2">
               <EditableField {...f("description")} label="Описание" kind="textarea" value={t.description} />
+            </div>
+            <div className="sm:col-span-2">
+              <EditableField {...f("result_summary")} label="Итог мероприятия" kind="textarea" value={t.result_summary} />
             </div>
             <div className="sm:col-span-2">
               <EditableField {...f("comment")} label="Комментарий" kind="textarea" value={t.comment} />
@@ -240,13 +252,13 @@ async function loadParticipants(id: string): Promise<ParticipantRow[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("training_participants")
-    .select("id, employee_id, attended, session_id, department_snapshot, unit_snapshot, position_snapshot, employee:employees(full_name, canonical_id)")
+    .select("id, employee_id, attended, session_id, department_snapshot, unit_snapshot, position_snapshot, result, result_note, employee:employees(full_name, canonical_id)")
     .eq("training_id", id)
     .limit(5000);
   return (data ?? [])
     .map((p) => {
       const e = p.employee as { full_name: string; canonical_id: string } | null;
-      return { id: p.id, employee_id: p.employee_id, full_name: e?.full_name ?? "—", canonical_id: e?.canonical_id ?? "", unit: p.unit_snapshot ?? p.department_snapshot, position: p.position_snapshot, attended: p.attended, session_id: p.session_id };
+      return { id: p.id, employee_id: p.employee_id, full_name: e?.full_name ?? "—", canonical_id: e?.canonical_id ?? "", unit: p.unit_snapshot ?? p.department_snapshot, position: p.position_snapshot, attended: p.attended, session_id: p.session_id, result: p.result ?? null, result_note: p.result_note ?? null };
     })
     .sort((a, b) => a.full_name.localeCompare(b.full_name, "ru"));
 }

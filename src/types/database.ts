@@ -18,6 +18,58 @@ export type Database = {
   }
   public: {
     Tables: {
+      agreement_repayments: {
+        Row: {
+          agreement_id: string
+          amount: number
+          comment: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          paid_on: string
+          void_reason: string | null
+          voided_at: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          agreement_id: string
+          amount: number
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          paid_on: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          agreement_id?: string
+          amount?: number
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          paid_on?: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_repayments_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "learning_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agreement_repayments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           description: string | null
@@ -25,6 +77,7 @@ export type Database = {
           updated_at: string
           value: string | null
         }
+        ComputedFields: never
         Insert: {
           description?: string | null
           key: string
@@ -51,6 +104,7 @@ export type Database = {
           table_name: string
           user_id: string | null
         }
+        ComputedFields: never
         Insert: {
           action: string
           at?: string
@@ -82,6 +136,7 @@ export type Database = {
           category_id: number
           id: number
         }
+        ComputedFields: never
         Insert: {
           amount_usd: number
           budget_line_id: number
@@ -129,6 +184,7 @@ export type Database = {
           unit_id: number | null
           version_id: number
         }
+        ComputedFields: never
         Insert: {
           amount_usd: number
           comment?: string | null
@@ -209,6 +265,7 @@ export type Database = {
           status: Database["public"]["Enums"]["budget_status"]
           supersedes_version_id: number | null
         }
+        ComputedFields: never
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
@@ -254,6 +311,433 @@ export type Database = {
           },
         ]
       }
+      certificates: {
+        Row: {
+          archived_at: string | null
+          cert_type: string
+          certificate_number: string | null
+          created_at: string
+          created_by: string | null
+          document_id: string | null
+          employee_id: string
+          exam_id: string | null
+          expiration_date: string | null
+          id: string
+          issue_date: string | null
+          issuing_organization: string | null
+          name: string
+          notes: string | null
+          provider_id: string | null
+          revoked_at: string | null
+          revoked_reason: string | null
+          skill_id: number | null
+          training_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          archived_at?: string | null
+          cert_type?: string
+          certificate_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          employee_id: string
+          exam_id?: string | null
+          expiration_date?: string | null
+          id?: string
+          issue_date?: string | null
+          issuing_organization?: string | null
+          name: string
+          notes?: string | null
+          provider_id?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          skill_id?: number | null
+          training_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          cert_type?: string
+          certificate_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          employee_id?: string
+          exam_id?: string | null
+          expiration_date?: string | null
+          id?: string
+          issue_date?: string | null
+          issuing_organization?: string | null
+          name?: string
+          notes?: string | null
+          provider_id?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          skill_id?: number | null
+          training_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_exam_fk"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "learning_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_financials"
+            referencedColumns: ["training_id"]
+          },
+          {
+            foreignKeyName: "certificates_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      development_goals: {
+        Row: {
+          certificate_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          employee_id: string
+          exam_id: string | null
+          goal_type: string
+          id: string
+          note: string | null
+          plan_year: number
+          skill_id: number | null
+          status: string
+          title: string
+          training_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          certificate_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          employee_id: string
+          exam_id?: string | null
+          goal_type?: string
+          id?: string
+          note?: string | null
+          plan_year: number
+          skill_id?: number | null
+          status?: string
+          title: string
+          training_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          certificate_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          employee_id?: string
+          exam_id?: string | null
+          goal_type?: string
+          id?: string
+          note?: string | null
+          plan_year?: number
+          skill_id?: number | null
+          status?: string
+          title?: string
+          training_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "development_goals_certificate_id_fkey"
+            columns: ["certificate_id"]
+            isOneToOne: false
+            referencedRelation: "certificates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_goals_certificate_id_fkey"
+            columns: ["certificate_id"]
+            isOneToOne: false
+            referencedRelation: "v_certificates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_goals_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_goals_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_goals_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_goals_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_goals_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_financials"
+            referencedColumns: ["training_id"]
+          },
+          {
+            foreignKeyName: "development_goals_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_goals_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          agreement_id: string | null
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
+          certificate_id: string | null
+          doc_type: string
+          employee_id: string | null
+          exam_id: string | null
+          expires_on: string | null
+          file_name: string
+          id: string
+          mime_type: string
+          note: string | null
+          request_id: string | null
+          size_bytes: number
+          status: string
+          storage_path: string
+          title: string
+          training_id: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          agreement_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          certificate_id?: string | null
+          doc_type: string
+          employee_id?: string | null
+          exam_id?: string | null
+          expires_on?: string | null
+          file_name: string
+          id?: string
+          mime_type: string
+          note?: string | null
+          request_id?: string | null
+          size_bytes: number
+          status?: string
+          storage_path: string
+          title: string
+          training_id?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          agreement_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          certificate_id?: string | null
+          doc_type?: string
+          employee_id?: string | null
+          exam_id?: string | null
+          expires_on?: string | null
+          file_name?: string
+          id?: string
+          mime_type?: string
+          note?: string | null
+          request_id?: string | null
+          size_bytes?: number
+          status?: string
+          storage_path?: string
+          title?: string
+          training_id?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_agreement_fk"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "learning_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_certificate_fk"
+            columns: ["certificate_id"]
+            isOneToOne: false
+            referencedRelation: "certificates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_certificate_fk"
+            columns: ["certificate_id"]
+            isOneToOne: false
+            referencedRelation: "v_certificates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_exam_fk"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "training_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_financials"
+            referencedColumns: ["training_id"]
+          },
+          {
+            foreignKeyName: "documents_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dq_issues: {
         Row: {
           created_at: string
@@ -273,6 +757,7 @@ export type Database = {
           suggestion: string | null
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           details?: Json | null
@@ -327,6 +812,7 @@ export type Database = {
           employee_id: string
           id: number
         }
+        ComputedFields: never
         Insert: {
           alias_norm: string
           confidence?: number | null
@@ -360,14 +846,18 @@ export type Database = {
       }
       employee_contacts: {
         Row: {
+          email: string | null
           employee_id: string
           phone: string | null
         }
+        ComputedFields: never
         Insert: {
+          email?: string | null
           employee_id: string
           phone?: string | null
         }
         Update: {
+          email?: string | null
           employee_id?: string
           phone?: string | null
         }
@@ -381,28 +871,97 @@ export type Database = {
           },
         ]
       }
+      employee_skills: {
+        Row: {
+          achieved_on: string
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          id: string
+          level: string
+          note: string | null
+          skill_id: number
+          source: string
+          source_ref: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          achieved_on?: string
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          id?: string
+          level: string
+          note?: string | null
+          skill_id: number
+          source?: string
+          source_ref?: string | null
+        }
+        Update: {
+          achieved_on?: string
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          id?: string
+          level?: string
+          note?: string | null
+          skill_id?: number
+          source?: string
+          source_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_skills_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_skills_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           canonical_id: string
           created_at: string
           department_id: number | null
+          employee_code: string | null
           full_name: string
+          hire_date: string | null
           id: string
           is_active: boolean
           name_norm: string
           position: string | null
+          termination_date: string | null
           unit_id: number | null
           updated_at: string
         }
+        ComputedFields: never
         Insert: {
           canonical_id: string
           created_at?: string
           department_id?: number | null
+          employee_code?: string | null
           full_name: string
+          hire_date?: string | null
           id?: string
           is_active?: boolean
           name_norm: string
           position?: string | null
+          termination_date?: string | null
           unit_id?: number | null
           updated_at?: string
         }
@@ -410,11 +969,14 @@ export type Database = {
           canonical_id?: string
           created_at?: string
           department_id?: number | null
+          employee_code?: string | null
           full_name?: string
+          hire_date?: string | null
           id?: string
           is_active?: boolean
           name_norm?: string
           position?: string | null
+          termination_date?: string | null
           unit_id?: number | null
           updated_at?: string
         }
@@ -435,6 +997,188 @@ export type Database = {
           },
         ]
       }
+      exam_costs: {
+        Row: {
+          currency: Database["public"]["Enums"]["currency_code"]
+          exam_id: string
+          fee: number
+          fee_date: string
+          fee_tjs: number | null
+          funding_source: string
+          fx_date: string | null
+          fx_rate: number | null
+          id: string
+          note: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          currency?: Database["public"]["Enums"]["currency_code"]
+          exam_id: string
+          fee: number
+          fee_date?: string
+          fee_tjs?: number | null
+          funding_source?: string
+          fx_date?: string | null
+          fx_rate?: number | null
+          id?: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          currency?: Database["public"]["Enums"]["currency_code"]
+          exam_id?: string
+          fee?: number
+          fee_date?: string
+          fee_tjs?: number | null
+          funding_source?: string
+          fx_date?: string | null
+          fx_rate?: number | null
+          id?: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_costs_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: true
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_costs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exams: {
+        Row: {
+          archived_at: string | null
+          attempt_no: number
+          canonical_id: string
+          comment: string | null
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          exam_date: string
+          id: string
+          provider_id: string | null
+          result: string
+          result_note: string | null
+          score: number | null
+          skill_id: number
+          status: string
+          training_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          archived_at?: string | null
+          attempt_no: number
+          canonical_id: string
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          exam_date: string
+          id?: string
+          provider_id?: string | null
+          result?: string
+          result_note?: string | null
+          score?: number | null
+          skill_id: number
+          status?: string
+          training_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          attempt_no?: number
+          canonical_id?: string
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          exam_date?: string
+          id?: string
+          provider_id?: string | null
+          result?: string
+          result_note?: string | null
+          score?: number | null
+          skill_id?: number
+          status?: string
+          training_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exams_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "learning_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_financials"
+            referencedColumns: ["training_id"]
+          },
+          {
+            foreignKeyName: "exams_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_categories: {
         Row: {
           code: string
@@ -443,6 +1187,7 @@ export type Database = {
           is_trainer_fee: boolean
           name: string
         }
+        ComputedFields: never
         Insert: {
           code: string
           group_code: string
@@ -475,6 +1220,7 @@ export type Database = {
           void_reason: string | null
           voided_at: string | null
         }
+        ComputedFields: never
         Insert: {
           amount: number
           amount_tjs?: number | null
@@ -543,6 +1289,7 @@ export type Database = {
           response_id: string
           score: number
         }
+        ComputedFields: never
         Insert: {
           block: Database["public"]["Enums"]["feedback_block"]
           question_no: number
@@ -574,6 +1321,7 @@ export type Database = {
           respondent_raw: string
           response_id: string
         }
+        ComputedFields: never
         Insert: {
           dedupe_key: string
           employee_id?: string | null
@@ -615,6 +1363,7 @@ export type Database = {
           is_archive: boolean
           submitted_at: string
         }
+        ComputedFields: never
         Insert: {
           comment?: string | null
           feedback_training_id?: string | null
@@ -648,6 +1397,7 @@ export type Database = {
           trainer_raw: string | null
           training_id: string | null
         }
+        ComputedFields: never
         Insert: {
           code: string
           event_date?: string | null
@@ -688,6 +1438,107 @@ export type Database = {
           },
         ]
       }
+      funding_policies: {
+        Row: {
+          basis: string | null
+          company_coverage_percent: number
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency_code"] | null
+          document_id: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          name: string
+          scope: string
+        }
+        ComputedFields: never
+        Insert: {
+          basis?: string | null
+          company_coverage_percent: number
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"] | null
+          document_id?: string | null
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          scope?: string
+        }
+        Update: {
+          basis?: string | null
+          company_coverage_percent?: number
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"] | null
+          document_id?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_policies_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_policies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_policies_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funding_policy_outcomes: {
+        Row: {
+          employee_responsibility_percent: number
+          outcome: string
+          policy_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          employee_responsibility_percent: number
+          outcome: string
+          policy_id: string
+        }
+        Update: {
+          employee_responsibility_percent?: number
+          outcome?: string
+          policy_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_policy_outcomes_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "funding_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fx_rates: {
         Row: {
           currency: Database["public"]["Enums"]["currency_code"]
@@ -695,6 +1546,7 @@ export type Database = {
           rate_to_tjs: number
           source: string | null
         }
+        ComputedFields: never
         Insert: {
           currency: Database["public"]["Enums"]["currency_code"]
           rate_date: string
@@ -709,12 +1561,529 @@ export type Database = {
         }
         Relationships: []
       }
+      import_job_rows: {
+        Row: {
+          applied_id: string | null
+          candidates: Json | null
+          data: NonNullable<Json>
+          decided_at: string | null
+          decided_by: string | null
+          decision: string | null
+          decision_match: string | null
+          id: number
+          job_id: string
+          match_id: string | null
+          messages: string[]
+          raw: NonNullable<Json>
+          review_code: string | null
+          row_no: number
+          status: string
+        }
+        ComputedFields: never
+        Insert: {
+          applied_id?: string | null
+          candidates?: Json | null
+          data?: NonNullable<Json>
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          decision_match?: string | null
+          id?: never
+          job_id: string
+          match_id?: string | null
+          messages?: string[]
+          raw: NonNullable<Json>
+          review_code?: string | null
+          row_no: number
+          status: string
+        }
+        Update: {
+          applied_id?: string | null
+          candidates?: Json | null
+          data?: NonNullable<Json>
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          decision_match?: string | null
+          id?: never
+          job_id?: string
+          match_id?: string | null
+          messages?: string[]
+          raw?: NonNullable<Json>
+          review_code?: string | null
+          row_no?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_job_rows_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_job_rows_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_jobs: {
+        Row: {
+          committed_at: string | null
+          committed_by: string | null
+          conflicts: number
+          created_at: string
+          created_by: string | null
+          duplicate_rows: number
+          entity: string
+          error_rows: number
+          file_hash: string | null
+          file_name: string
+          id: string
+          inserted: number
+          mapping: NonNullable<Json>
+          new_rows: number
+          note: string | null
+          options: NonNullable<Json>
+          review_rows: number
+          skipped: number
+          source: string
+          status: string
+          total_rows: number
+          unchanged_rows: number
+          updated: number
+          updated_rows: number
+        }
+        ComputedFields: never
+        Insert: {
+          committed_at?: string | null
+          committed_by?: string | null
+          conflicts?: number
+          created_at?: string
+          created_by?: string | null
+          duplicate_rows?: number
+          entity: string
+          error_rows?: number
+          file_hash?: string | null
+          file_name: string
+          id?: string
+          inserted?: number
+          mapping?: NonNullable<Json>
+          new_rows?: number
+          note?: string | null
+          options?: NonNullable<Json>
+          review_rows?: number
+          skipped?: number
+          source: string
+          status?: string
+          total_rows?: number
+          unchanged_rows?: number
+          updated?: number
+          updated_rows?: number
+        }
+        Update: {
+          committed_at?: string | null
+          committed_by?: string | null
+          conflicts?: number
+          created_at?: string
+          created_by?: string | null
+          duplicate_rows?: number
+          entity?: string
+          error_rows?: number
+          file_hash?: string | null
+          file_name?: string
+          id?: string
+          inserted?: number
+          mapping?: NonNullable<Json>
+          new_rows?: number
+          note?: string | null
+          options?: NonNullable<Json>
+          review_rows?: number
+          skipped?: number
+          source?: string
+          status?: string
+          total_rows?: number
+          unchanged_rows?: number
+          updated?: number
+          updated_rows?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_jobs_committed_by_fkey"
+            columns: ["committed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_agreements: {
+        Row: {
+          canonical_id: string
+          company_coverage_percent: number
+          company_funded_amount: number
+          conditions: string | null
+          contract_date: string | null
+          contract_document_id: string | null
+          contract_number: string | null
+          cost_date: string
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency_code"]
+          effective_from: string | null
+          effective_to: string | null
+          employee_id: string
+          employee_responsibility_percent: number | null
+          evaluated_at: string | null
+          evaluated_by: string | null
+          exam_id: string | null
+          fail_condition: string | null
+          fx_date: string | null
+          fx_rate: number | null
+          id: string
+          note: string | null
+          outcome: string | null
+          pass_condition: string | null
+          policy_id: string | null
+          repayment_amount: number
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          total_cost: number
+          total_cost_tjs: number | null
+          training_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          canonical_id: string
+          company_coverage_percent: number
+          company_funded_amount?: number
+          conditions?: string | null
+          contract_date?: string | null
+          contract_document_id?: string | null
+          contract_number?: string | null
+          cost_date?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          effective_from?: string | null
+          effective_to?: string | null
+          employee_id: string
+          employee_responsibility_percent?: number | null
+          evaluated_at?: string | null
+          evaluated_by?: string | null
+          exam_id?: string | null
+          fail_condition?: string | null
+          fx_date?: string | null
+          fx_rate?: number | null
+          id?: string
+          note?: string | null
+          outcome?: string | null
+          pass_condition?: string | null
+          policy_id?: string | null
+          repayment_amount?: number
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          total_cost: number
+          total_cost_tjs?: number | null
+          training_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          canonical_id?: string
+          company_coverage_percent?: number
+          company_funded_amount?: number
+          conditions?: string | null
+          contract_date?: string | null
+          contract_document_id?: string | null
+          contract_number?: string | null
+          cost_date?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency_code"]
+          effective_from?: string | null
+          effective_to?: string | null
+          employee_id?: string
+          employee_responsibility_percent?: number | null
+          evaluated_at?: string | null
+          evaluated_by?: string | null
+          exam_id?: string | null
+          fail_condition?: string | null
+          fx_date?: string | null
+          fx_rate?: number | null
+          id?: string
+          note?: string | null
+          outcome?: string | null
+          pass_condition?: string | null
+          policy_id?: string | null
+          repayment_amount?: number
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          total_cost?: number
+          total_cost_tjs?: number | null
+          training_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_agreements_contract_document_id_fkey"
+            columns: ["contract_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_evaluated_by_fkey"
+            columns: ["evaluated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "funding_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_financials"
+            referencedColumns: ["training_id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_agreements_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_event_types: {
+        Row: {
+          code: string
+          created_at: string
+          id: number
+          is_active: boolean
+          is_group: boolean
+          is_system: boolean
+          name: string
+          sort_order: number
+        }
+        ComputedFields: never
+        Insert: {
+          code: string
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_group?: boolean
+          is_system?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_group?: boolean
+          is_system?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      learning_providers: {
+        Row: {
+          contact: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          name: string
+          name_norm: string
+          note: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          contact?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          name: string
+          name_norm: string
+          note?: string | null
+        }
+        Update: {
+          contact?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          name?: string
+          name_norm?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_providers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_reads: {
+        Row: {
+          notification_id: string
+          read_at: string
+          user_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          notification_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          notification_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          dedupe_key: string
+          href: string | null
+          id: string
+          resolved_at: string | null
+          roles: Database["public"]["Enums"]["app_role"][]
+          severity: string
+          title: string
+          type: string
+        }
+        ComputedFields: never
+        Insert: {
+          body?: string | null
+          created_at?: string
+          dedupe_key: string
+          href?: string | null
+          id?: string
+          resolved_at?: string | null
+          roles: Database["public"]["Enums"]["app_role"][]
+          severity?: string
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          dedupe_key?: string
+          href?: string | null
+          id?: string
+          resolved_at?: string | null
+          roles?: Database["public"]["Enums"]["app_role"][]
+          severity?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       org_unit_aliases: {
         Row: {
           alias_norm: string
           id: number
           org_unit_id: number
         }
+        ComputedFields: never
         Insert: {
           alias_norm: string
           id?: never
@@ -744,6 +2113,7 @@ export type Database = {
           name: string
           parent_id: number | null
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           id?: never
@@ -778,6 +2148,7 @@ export type Database = {
           is_active: boolean
           role: Database["public"]["Enums"]["app_role"]
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           full_name: string
@@ -794,6 +2165,110 @@ export type Database = {
         }
         Relationships: []
       }
+      public_request_attempts: {
+        Row: {
+          at: string
+          client_hash: string
+          id: number
+          link_id: string | null
+          outcome: string
+        }
+        ComputedFields: never
+        Insert: {
+          at?: string
+          client_hash: string
+          id?: never
+          link_id?: string | null
+          outcome: string
+        }
+        Update: {
+          at?: string
+          client_hash?: string
+          id?: never
+          link_id?: string | null
+          outcome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_request_attempts_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "request_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      request_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          disabled_at: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          label: string
+          last_used_at: string | null
+          org_unit_id: number | null
+          replaced_by: string | null
+          scope: string
+          token: string
+          uses_count: number
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          disabled_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          last_used_at?: string | null
+          org_unit_id?: number | null
+          replaced_by?: string | null
+          scope: string
+          token: string
+          uses_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          disabled_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          last_used_at?: string | null
+          org_unit_id?: number | null
+          replaced_by?: string | null
+          scope?: string
+          token?: string
+          uses_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_links_org_unit_id_fkey"
+            columns: ["org_unit_id"]
+            isOneToOne: false
+            referencedRelation: "org_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_links_replaced_by_fkey"
+            columns: ["replaced_by"]
+            isOneToOne: false
+            referencedRelation: "request_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_attendance: {
         Row: {
           marked_at: string
@@ -802,6 +2277,7 @@ export type Database = {
           session_id: string
           status: Database["public"]["Enums"]["attendance_status"]
         }
+        ComputedFields: never
         Insert: {
           marked_at?: string
           marked_by?: string | null
@@ -840,6 +2316,34 @@ export type Database = {
           },
         ]
       }
+      skills: {
+        Row: {
+          created_at: string
+          id: number
+          is_active: boolean
+          kind: string
+          name: string
+          name_norm: string
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          kind?: string
+          name: string
+          name_norm: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          kind?: string
+          name?: string
+          name_norm?: string
+        }
+        Relationships: []
+      }
       source_files: {
         Row: {
           file_hash: string | null
@@ -849,6 +2353,7 @@ export type Database = {
           uploaded_at: string
           uploaded_by: string | null
         }
+        ComputedFields: never
         Insert: {
           file_hash?: string | null
           file_name: string
@@ -887,6 +2392,7 @@ export type Database = {
           source_file_id: number | null
           status: Database["public"]["Enums"]["source_record_status"]
         }
+        ComputedFields: never
         Insert: {
           entity_id?: string | null
           entity_table?: string | null
@@ -925,6 +2431,7 @@ export type Database = {
           id: number
           trainer_id: string
         }
+        ComputedFields: never
         Insert: {
           alias_norm: string
           id?: never
@@ -954,6 +2461,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["trainer_kind"]
         }
+        ComputedFields: never
         Insert: {
           canonical_id: string
           created_at?: string
@@ -990,10 +2498,13 @@ export type Database = {
           id: string
           note: string | null
           position_snapshot: string | null
+          result: string | null
+          result_note: string | null
           session_id: string | null
           training_id: string
           unit_snapshot: string | null
         }
+        ComputedFields: never
         Insert: {
           added_at?: string
           added_by?: string | null
@@ -1003,6 +2514,8 @@ export type Database = {
           id?: string
           note?: string | null
           position_snapshot?: string | null
+          result?: string | null
+          result_note?: string | null
           session_id?: string | null
           training_id: string
           unit_snapshot?: string | null
@@ -1016,6 +2529,8 @@ export type Database = {
           id?: string
           note?: string | null
           position_snapshot?: string | null
+          result?: string | null
+          result_note?: string | null
           session_id?: string | null
           training_id?: string
           unit_snapshot?: string | null
@@ -1075,6 +2590,7 @@ export type Database = {
           canonical_id: string
           carry_forward: boolean
           comment: string | null
+          contact: string | null
           created_at: string
           created_by: string | null
           department_id: number | null
@@ -1090,15 +2606,18 @@ export type Database = {
           plan_year: number
           planned_year: number | null
           request_date: string | null
+          request_link_id: string | null
           requester_id: string | null
           requester_raw: string | null
           status: Database["public"]["Enums"]["request_status"]
+          submitted_via: string
           topic: string
           trainer_raw: string | null
           unit_id: number | null
           updated_at: string
           updated_by: string | null
         }
+        ComputedFields: never
         Insert: {
           archive_reason?: string | null
           archived_at?: string | null
@@ -1108,6 +2627,7 @@ export type Database = {
           canonical_id: string
           carry_forward?: boolean
           comment?: string | null
+          contact?: string | null
           created_at?: string
           created_by?: string | null
           department_id?: number | null
@@ -1123,9 +2643,11 @@ export type Database = {
           plan_year: number
           planned_year?: number | null
           request_date?: string | null
+          request_link_id?: string | null
           requester_id?: string | null
           requester_raw?: string | null
           status?: Database["public"]["Enums"]["request_status"]
+          submitted_via?: string
           topic: string
           trainer_raw?: string | null
           unit_id?: number | null
@@ -1141,6 +2663,7 @@ export type Database = {
           canonical_id?: string
           carry_forward?: boolean
           comment?: string | null
+          contact?: string | null
           created_at?: string
           created_by?: string | null
           department_id?: number | null
@@ -1156,9 +2679,11 @@ export type Database = {
           plan_year?: number
           planned_year?: number | null
           request_date?: string | null
+          request_link_id?: string | null
           requester_id?: string | null
           requester_raw?: string | null
           status?: Database["public"]["Enums"]["request_status"]
+          submitted_via?: string
           topic?: string
           trainer_raw?: string | null
           unit_id?: number | null
@@ -1185,6 +2710,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "org_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_requests_link_fk"
+            columns: ["request_link_id"]
+            isOneToOne: false
+            referencedRelation: "request_links"
             referencedColumns: ["id"]
           },
           {
@@ -1229,6 +2761,7 @@ export type Database = {
           start_date: string
           training_id: string
         }
+        ComputedFields: never
         Insert: {
           comment?: string | null
           end_date: string
@@ -1280,6 +2813,7 @@ export type Database = {
           trainer_id: string
           training_id: string
         }
+        ComputedFields: never
         Insert: {
           trainer_id: string
           training_id: string
@@ -1330,14 +2864,18 @@ export type Database = {
           created_by: string | null
           description: string | null
           end_date: string
+          event_type_id: number
           format: Database["public"]["Enums"]["training_format"]
           hours: number
           id: string
           kind: Database["public"]["Enums"]["training_kind"]
           legacy_reestr_id: number | null
           location: string | null
+          organizer: string | null
           participants_planned: number | null
+          provider_id: string | null
           request_id: string | null
+          result_summary: string | null
           source_confirmed: boolean
           source_type: Database["public"]["Enums"]["source_type"]
           start_date: string
@@ -1349,6 +2887,7 @@ export type Database = {
           updated_at: string
           updated_by: string | null
         }
+        ComputedFields: never
         Insert: {
           archive_reason?: string | null
           archived_at?: string | null
@@ -1359,14 +2898,18 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_date: string
+          event_type_id: number
           format: Database["public"]["Enums"]["training_format"]
           hours: number
           id?: string
           kind: Database["public"]["Enums"]["training_kind"]
           legacy_reestr_id?: number | null
           location?: string | null
+          organizer?: string | null
           participants_planned?: number | null
+          provider_id?: string | null
           request_id?: string | null
+          result_summary?: string | null
           source_confirmed?: boolean
           source_type: Database["public"]["Enums"]["source_type"]
           start_date: string
@@ -1388,14 +2931,18 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_date?: string
+          event_type_id?: number
           format?: Database["public"]["Enums"]["training_format"]
           hours?: number
           id?: string
           kind?: Database["public"]["Enums"]["training_kind"]
           legacy_reestr_id?: number | null
           location?: string | null
+          organizer?: string | null
           participants_planned?: number | null
+          provider_id?: string | null
           request_id?: string | null
+          result_summary?: string | null
           source_confirmed?: boolean
           source_type?: Database["public"]["Enums"]["source_type"]
           start_date?: string
@@ -1423,6 +2970,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "trainings_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "learning_event_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trainings_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "learning_providers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "trainings_request_id_fkey"
             columns: ["request_id"]
             isOneToOne: false
@@ -1440,6 +3001,156 @@ export type Database = {
       }
     }
     Views: {
+      v_certificates: {
+        Row: {
+          archived_at: string | null
+          cert_type: string | null
+          certificate_number: string | null
+          created_at: string | null
+          created_by: string | null
+          days_left: number | null
+          document_id: string | null
+          employee_id: string | null
+          exam_id: string | null
+          expiration_date: string | null
+          id: string | null
+          issue_date: string | null
+          issuing_organization: string | null
+          name: string | null
+          notes: string | null
+          provider_id: string | null
+          revoked_at: string | null
+          revoked_reason: string | null
+          skill_id: number | null
+          status: string | null
+          training_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          archived_at?: string | null
+          cert_type?: string | null
+          certificate_number?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          days_left?: never
+          document_id?: string | null
+          employee_id?: string | null
+          exam_id?: string | null
+          expiration_date?: string | null
+          id?: string | null
+          issue_date?: string | null
+          issuing_organization?: string | null
+          name?: string | null
+          notes?: string | null
+          provider_id?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          skill_id?: number | null
+          status?: never
+          training_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          cert_type?: string | null
+          certificate_number?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          days_left?: never
+          document_id?: string | null
+          employee_id?: string | null
+          exam_id?: string | null
+          expiration_date?: string | null
+          id?: string | null
+          issue_date?: string | null
+          issuing_organization?: string | null
+          name?: string | null
+          notes?: string | null
+          provider_id?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          skill_id?: number | null
+          status?: never
+          training_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_exam_fk"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "learning_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_financials"
+            referencedColumns: ["training_id"]
+          },
+          {
+            foreignKeyName: "certificates_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_dq_source_logic: {
         Row: {
           entity_id: string | null
@@ -1447,6 +3158,7 @@ export type Database = {
           rule_code: string | null
           severity: Database["public"]["Enums"]["dq_severity"] | null
         }
+        ComputedFields: never
         Relationships: []
       }
       v_training_financials: {
@@ -1459,6 +3171,7 @@ export type Database = {
           participants: number | null
           training_id: string | null
         }
+        ComputedFields: never
         Relationships: []
       }
       v_training_list: {
@@ -1468,14 +3181,19 @@ export type Database = {
           attendance_mode: boolean | null
           canonical_id: string | null
           end_date: string | null
+          event_type_code: string | null
+          event_type_id: number | null
+          event_type_name: string | null
           format: Database["public"]["Enums"]["training_format"] | null
           hours: number | null
           id: string | null
           kind: Database["public"]["Enums"]["training_kind"] | null
           location: string | null
           man_hours: number | null
+          organizer: string | null
           participants: number | null
           participants_planned: number | null
+          provider_id: string | null
           request_id: string | null
           source_confirmed: boolean | null
           source_type: Database["public"]["Enums"]["source_type"] | null
@@ -1483,49 +3201,22 @@ export type Database = {
           status: Database["public"]["Enums"]["training_status"] | null
           title: string | null
         }
-        Insert: {
-          actual_tjs?: never
-          archived_at?: string | null
-          attendance_mode?: never
-          canonical_id?: string | null
-          end_date?: string | null
-          format?: Database["public"]["Enums"]["training_format"] | null
-          hours?: number | null
-          id?: string | null
-          kind?: Database["public"]["Enums"]["training_kind"] | null
-          location?: string | null
-          man_hours?: never
-          participants?: never
-          participants_planned?: number | null
-          request_id?: string | null
-          source_confirmed?: boolean | null
-          source_type?: Database["public"]["Enums"]["source_type"] | null
-          start_date?: string | null
-          status?: Database["public"]["Enums"]["training_status"] | null
-          title?: string | null
-        }
-        Update: {
-          actual_tjs?: never
-          archived_at?: string | null
-          attendance_mode?: never
-          canonical_id?: string | null
-          end_date?: string | null
-          format?: Database["public"]["Enums"]["training_format"] | null
-          hours?: number | null
-          id?: string | null
-          kind?: Database["public"]["Enums"]["training_kind"] | null
-          location?: string | null
-          man_hours?: never
-          participants?: never
-          participants_planned?: number | null
-          request_id?: string | null
-          source_confirmed?: boolean | null
-          source_type?: Database["public"]["Enums"]["source_type"] | null
-          start_date?: string | null
-          status?: Database["public"]["Enums"]["training_status"] | null
-          title?: string | null
-        }
+        ComputedFields: never
         Relationships: [
+          {
+            foreignKeyName: "trainings_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "learning_event_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trainings_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "learning_providers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "trainings_request_id_fkey"
             columns: ["request_id"]
@@ -1541,6 +3232,10 @@ export type Database = {
       add_employee_alias: {
         Args: { p_alias: string; p_employee: string; p_reason: string }
         Returns: undefined
+      }
+      add_employee_skill: {
+        Args: { p: Json; p_reason?: string }
+        Returns: string
       }
       add_expense: {
         Args: {
@@ -1571,28 +3266,76 @@ export type Database = {
         Returns: undefined
       }
       approved_version: { Args: { p_year: number }; Returns: number }
+      archive_document: {
+        Args: { p_archived: boolean; p_id: string; p_reason: string }
+        Returns: undefined
+      }
       archive_training: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
+      }
+      attention_summary: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          cnt: number
+          href: string
+          kind: string
+          label: string
+          severity: string
+        }[]
       }
       bootstrap_first_admin: {
         Args: { p_email: string; p_full_name: string }
         Returns: string
       }
       budget_version_locked: { Args: { p_version: number }; Returns: boolean }
+      bulk_update_employees: {
+        Args: { p_ids: string[]; p_patch: Json; p_reason: string }
+        Returns: number
+      }
+      can_doc: { Args: { p_type: string; p_write: boolean }; Returns: boolean }
+      can_import: { Args: { p_entity: string }; Returns: boolean }
+      cancel_agreement: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
+      certificate_status: {
+        Args: { p_exp: string; p_revoked: string }
+        Returns: string
+      }
+      confirm_document: { Args: { p_id: string }; Returns: undefined }
+      confirm_funding_policy: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
       cost_per_participant: { Args: { p_training: string }; Returns: number }
+      create_agreement: {
+        Args: { p: Json; p_reason?: string }
+        Returns: string
+      }
       create_budget_revision: {
         Args: { p_from: number; p_reason: string }
         Returns: number
       }
+      create_certificate: {
+        Args: { p: Json; p_reason?: string }
+        Returns: string
+      }
       create_employee: { Args: { p: Json; p_reason?: string }; Returns: string }
+      create_exam: { Args: { p: Json; p_reason?: string }; Returns: string }
+      create_org_unit: { Args: { p: Json; p_reason?: string }; Returns: number }
       create_request: { Args: { p: Json; p_reason?: string }; Returns: string }
+      create_request_link: {
+        Args: { p: Json; p_reason?: string }
+        Returns: string
+      }
       create_training: { Args: { p: Json; p_reason?: string }; Returns: string }
       dearmor: { Args: { "": string }; Returns: string }
       delete_session: {
         Args: { p_reason: string; p_session: string }
         Returns: undefined
       }
+      doc_is_financial: { Args: { p_type: string }; Returns: boolean }
       dq_resolve: {
         Args: { p_action: string; p_issue: number; p_reason?: string }
         Returns: undefined
@@ -1622,6 +3365,36 @@ export type Database = {
           year: number
         }[]
       }
+      employee_learning_summary: {
+        Args: { p_employee: string }
+        Returns: {
+          certificates_active: number
+          certificates_total: number
+          company_spent_tjs: number
+          employee_obligation_tjs: number
+          events_count: number
+          exams_failed: number
+          exams_passed: number
+          exams_total: number
+          individual_education_tjs: number
+          man_hours: number
+          outstanding_obligation_tjs: number
+          planned_count: number
+          unplanned_count: number
+        }[]
+      }
+      employee_timeline: {
+        Args: { p_employee: string }
+        Returns: {
+          detail: string
+          event_date: string
+          kind: string
+          ref_id: string
+          ref_table: string
+          status: string
+          title: string
+        }[]
+      }
       ensure_attendance_mode: {
         Args: { p_training: string }
         Returns: undefined
@@ -1642,6 +3415,10 @@ export type Database = {
           user_name: string
         }[]
       }
+      evaluate_agreement: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: Json
+      }
       feedback_summary: {
         Args: { p_feedback_training: string }
         Returns: {
@@ -1655,6 +3432,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["financial_access"]
       }
+      find_org_units: {
+        Args: {
+          p_level: Database["public"]["Enums"]["org_level"]
+          p_name: string
+          p_parent?: number
+        }
+        Returns: number[]
+      }
       fx_rate_on: {
         Args: {
           p_currency: Database["public"]["Enums"]["currency_code"]
@@ -1667,10 +3452,69 @@ export type Database = {
       }
       gen_random_uuid: { Args: Record<PropertyKey, never>; Returns: string }
       gen_salt: { Args: { "": string }; Returns: string }
+      global_search: {
+        Args: { p_limit?: number; p_q: string }
+        Returns: {
+          href: string
+          id: string
+          kind: string
+          subtitle: string
+          title: string
+        }[]
+      }
       has_attendance: { Args: { p_training: string }; Returns: boolean }
       has_financial_access: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      import_analyze_row: {
+        Args: { p_entity: string; p_in: Json; p_options: Json }
+        Returns: Json
+      }
+      import_bool: { Args: { p: string }; Returns: boolean }
+      import_cancel: {
+        Args: { p_job: string; p_reason: string }
+        Returns: undefined
+      }
+      import_commit: {
+        Args: { p_job: string; p_reason?: string }
+        Returns: Json
+      }
+      import_dq_sync: {
+        Args: {
+          p_code: string
+          p_job: string
+          p_message: string
+          p_open: boolean
+          p_row: number
+        }
+        Returns: undefined
+      }
+      import_lineage: {
+        Args: {
+          p_entity: string
+          p_hash: string
+          p_job: string
+          p_row_no: number
+          p_table: string
+        }
+        Returns: undefined
+      }
+      import_resolve_row: {
+        Args: { p_decision: string; p_match?: string; p_row: number }
+        Returns: undefined
+      }
+      import_stage: {
+        Args: {
+          p_entity: string
+          p_file_hash: string
+          p_file_name: string
+          p_mapping: Json
+          p_options: Json
+          p_rows: Json
+          p_source: string
+        }
+        Returns: string
       }
       is_long_program: { Args: { p_training: string }; Returns: boolean }
       kpi_year: {
@@ -1703,10 +3547,36 @@ export type Database = {
         Returns: undefined
       }
       man_hours: { Args: { p_training: string }; Returns: number }
+      mark_notifications_read: { Args: { p_ids: string[] }; Returns: number }
+      match_employee_candidates: {
+        Args: { p_active_only?: boolean; p_code?: string; p_name: string }
+        Returns: {
+          department_id: number
+          employee_id: string
+          full_name: string
+          is_active: boolean
+          match_kind: string
+          position: string
+          unit_id: number
+        }[]
+      }
+      match_names: {
+        Args: { p_codes?: string[]; p_names: string[] }
+        Returns: Json
+      }
+      move_org_unit: {
+        Args: { p_id: number; p_new_parent: number; p_reason: string }
+        Returns: undefined
+      }
+      name_key: { Args: { p: string }; Returns: string }
+      next_agreement_code: { Args: { p_year: number }; Returns: string }
       next_employee_code: { Args: Record<PropertyKey, never>; Returns: string }
+      next_exam_code: { Args: { p_year: number }; Returns: string }
       next_request_code: { Args: { p_year: number }; Returns: string }
       next_training_code: { Args: { p_year: number }; Returns: string }
       norm_name: { Args: { p: string }; Returns: string }
+      notify_scan: { Args: Record<PropertyKey, never>; Returns: number }
+      parse_date_text: { Args: { p: string }; Returns: string }
       participants_count: { Args: { p_training: string }; Returns: number }
       pgp_armor_headers: {
         Args: { "": string }
@@ -1714,12 +3584,31 @@ export type Database = {
       }
       planned_total_tjs: { Args: { p_version: number }; Returns: number }
       planned_total_usd: { Args: { p_version: number }; Returns: number }
+      public_request_options: { Args: { p_token: string }; Returns: Json }
+      record_repayment: {
+        Args: {
+          p_agreement: string
+          p_amount: number
+          p_comment?: string
+          p_paid_on: string
+        }
+        Returns: string
+      }
+      regenerate_request_link: {
+        Args: { p_id: string; p_reason: string }
+        Returns: string
+      }
+      register_document: { Args: { p: Json }; Returns: Json }
       remove_employee_alias: {
         Args: { p_alias: number; p_reason: string }
         Returns: undefined
       }
       remove_participant: {
         Args: { p_participant: string; p_reason: string }
+        Returns: undefined
+      }
+      rename_org_unit: {
+        Args: { p_id: number; p_name: string; p_reason: string }
         Returns: undefined
       }
       req_reason: { Args: { p_reason: string }; Returns: string }
@@ -1738,19 +3627,70 @@ export type Database = {
         Args: { p_audit_id: number; p_reason: string }
         Returns: undefined
       }
+      review_obligation: {
+        Args: { p_id: string; p_note: string; p_reason: string }
+        Returns: undefined
+      }
+      revoke_certificate: {
+        Args: { p_id: string; p_reason: string; p_revoked: boolean }
+        Returns: undefined
+      }
       saving_amount_tjs: { Args: { p_year: number }; Returns: number }
       saving_percent: { Args: { p_year: number }; Returns: number }
       set_attendance: {
         Args: { p_reason: string; p_updates: Json }
         Returns: number
       }
+      set_exam_cost: {
+        Args: { p: Json; p_exam: string; p_reason?: string }
+        Returns: undefined
+      }
+      set_exam_result: {
+        Args: {
+          p_id: string
+          p_note?: string
+          p_reason?: string
+          p_result: string
+          p_score?: number
+        }
+        Returns: undefined
+      }
+      set_org_unit_active: {
+        Args: { p_active: boolean; p_id: number; p_reason: string }
+        Returns: undefined
+      }
+      set_participant_result: {
+        Args: {
+          p_note: string
+          p_participant: string
+          p_reason: string
+          p_result: string
+        }
+        Returns: undefined
+      }
+      set_public_request_open: {
+        Args: { p_open: boolean; p_reason: string }
+        Returns: undefined
+      }
       set_request_archived: {
         Args: { p_archived: boolean; p_id: string; p_reason: string }
+        Returns: undefined
+      }
+      set_request_link_active: {
+        Args: { p_active: boolean; p_id: string; p_reason: string }
         Returns: undefined
       }
       set_training_archived: {
         Args: { p_archived: boolean; p_id: string; p_reason: string }
         Returns: undefined
+      }
+      submit_public_request: {
+        Args: { p: Json; p_client: string; p_token: string }
+        Returns: Json
+      }
+      training_transition_allowed: {
+        Args: { p_from: string; p_to: string }
+        Returns: boolean
       }
       unplanned_stats: {
         Args: { p_year: number }
@@ -1763,7 +3703,19 @@ export type Database = {
           unplanned_training_count: number
         }[]
       }
+      update_agreement: {
+        Args: { p_id: string; p_patch: Json; p_reason?: string }
+        Returns: undefined
+      }
+      update_certificate: {
+        Args: { p_id: string; p_patch: Json; p_reason?: string }
+        Returns: undefined
+      }
       update_employee: {
+        Args: { p_id: string; p_patch: Json; p_reason?: string }
+        Returns: undefined
+      }
+      update_exam: {
         Args: { p_id: string; p_patch: Json; p_reason?: string }
         Returns: undefined
       }
@@ -1779,6 +3731,22 @@ export type Database = {
         Args: { p_id: string; p_patch: Json; p_reason?: string }
         Returns: undefined
       }
+      upsert_event_type: {
+        Args: { p: Json; p_id: number; p_reason?: string }
+        Returns: number
+      }
+      upsert_funding_policy: {
+        Args: { p: Json; p_id: string; p_reason?: string }
+        Returns: string
+      }
+      upsert_goal: {
+        Args: { p: Json; p_id: string; p_reason?: string }
+        Returns: string
+      }
+      upsert_provider: {
+        Args: { p: Json; p_id: string; p_reason?: string }
+        Returns: string
+      }
       upsert_session: {
         Args: {
           p: Json
@@ -1788,9 +3756,17 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_skill: {
+        Args: { p: Json; p_id: number; p_reason?: string }
+        Returns: number
+      }
       utilization_percent: { Args: { p_year: number }; Returns: number }
       variance_tjs: { Args: { p_year: number }; Returns: number }
       void_expense: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
+      void_repayment: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
       }
@@ -1823,7 +3799,10 @@ export type Database = {
       training_format: "ONLINE" | "OFFLINE" | "BLENDED"
       training_kind: "INTERNAL" | "EXTERNAL" | "UNSPECIFIED"
       training_status:
+        | "DRAFT"
         | "PLANNED"
+        | "APPROVED"
+        | "REGISTERED"
         | "IN_PROGRESS"
         | "COMPLETED"
         | "CANCELLED"
@@ -1993,7 +3972,10 @@ export const Constants = {
       training_format: ["ONLINE", "OFFLINE", "BLENDED"],
       training_kind: ["INTERNAL", "EXTERNAL", "UNSPECIFIED"],
       training_status: [
+        "DRAFT",
         "PLANNED",
+        "APPROVED",
+        "REGISTERED",
         "IN_PROGRESS",
         "COMPLETED",
         "CANCELLED",

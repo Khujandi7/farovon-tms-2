@@ -5,7 +5,7 @@ import { z } from "zod";
 import { callRpc, fail, requireRole, type Result } from "@/lib/workflows/server";
 import { WF_ROLES } from "@/lib/workflows/roles";
 import { WF_ERR } from "@/lib/workflows/errors";
-import { EMPLOYEE_FIELDS, fieldErrorsFrom, optReason, reason, uuid, type EmployeeField } from "@/lib/workflows/schemas";
+import { EMPLOYEE_FIELDS, EMPLOYEE_REASON_FIELDS, fieldErrorsFrom, optReason, reason, uuid, type EmployeeField } from "@/lib/workflows/schemas";
 import type { Json } from "@/types/database";
 
 const refresh = (id?: string) => {
@@ -42,7 +42,7 @@ export async function updateEmployeeField(input: { id: string; field: string; va
   const field = input.field as EmployeeField;
   const parsed = EMPLOYEE_FIELDS[field].safeParse(input.value);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? WF_ERR.invalid, { value: parsed.error.issues[0]?.message });
-  const r = field === "is_active" ? reason.safeParse(input.reason) : optReason.safeParse(input.reason);
+  const r = (EMPLOYEE_REASON_FIELDS as readonly string[]).includes(field) ? reason.safeParse(input.reason) : optReason.safeParse(input.reason);
   if (!r.success) return fail(r.error.issues[0]?.message ?? WF_ERR.reason, { reason: r.error.issues[0]?.message });
   const res = await callRpc("update_employee", { p_id: id.data, p_patch: { [field]: parsed.data } as unknown as Json, p_reason: r.data ?? undefined });
   if (!res.ok) return res;
@@ -70,4 +70,42 @@ export async function removeEmployeeAlias(input: { aliasId: number; employeeId: 
   if (!res.ok) return res;
   refresh(p.data.employeeId);
   return { ok: true, message: "Написание удалено.", data: undefined };
+}
+
+const BULK_MAX = 500;
+const orgId = z.preprocess((v) => (v === "" || v === null || v === undefined ? null : v), z.coerce.number().int().positive().nullable());
+
+const bulkSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("move"), department_id: orgId, unit_id: orgId }),
+  z.object({ action: z.literal("position"), position: z.string().trim().max(200, { message: "Не длиннее 200 символов" }) }),
+  z.object({ action: z.literal("status"), is_active: z.boolean() }),
+]);
+
+/** Массовое изменение сотрудников одним патчем через bulk_update_employees (≤ 500 за раз, причина обязательна, аудит пишет БД). */
+export async function bulkUpdateEmployees(input: { ids: unknown; change: unknown; reason: unknown }): Promise<Result<{ count: number }>> {
+  const actor = await requireRole(WF_ROLES.employee);
+  if (!actor.ok) return actor;
+  const ids = z.array(uuid).min(1, { message: "Не выбрано ни одного сотрудника" }).max(BULK_MAX, { message: `Не больше ${BULK_MAX} сотрудников за раз` }).safeParse(input.ids);
+  if (!ids.success) return fail(ids.error.issues[0]?.message ?? WF_ERR.invalid);
+  const change = bulkSchema.safeParse(input.change);
+  if (!change.success) return fail(change.error.issues[0]?.message ?? WF_ERR.invalid, fieldErrorsFrom(change.error));
+  const r = reason.safeParse(input.reason);
+  if (!r.success) return fail(r.error.issues[0]?.message ?? WF_ERR.reason, { reason: r.error.issues[0]?.message });
+
+  const c = change.data;
+  let patch: Record<string, Json>;
+  if (c.action === "move") {
+    if (!c.department_id && !c.unit_id) return fail("Выберите департамент или отдел.");
+    // Отдел без департамента: департамент БД возьмёт из родителя отдела. Департамент без отдела сбрасывает отдел.
+    patch = c.unit_id ? { unit_id: c.unit_id, ...(c.department_id ? { department_id: c.department_id } : {}) } : { department_id: c.department_id, unit_id: null };
+  } else if (c.action === "position") {
+    patch = { position: c.position === "" ? null : c.position };
+  } else {
+    patch = { is_active: c.is_active };
+  }
+  const res = await callRpc("bulk_update_employees", { p_ids: [...new Set(ids.data)], p_patch: patch as unknown as Json, p_reason: r.data });
+  if (!res.ok) return res;
+  refresh();
+  const count = Number(res.data ?? ids.data.length);
+  return { ok: true, message: `Изменено сотрудников: ${count}.`, data: { count } };
 }

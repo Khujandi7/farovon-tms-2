@@ -16,6 +16,9 @@ export type SectionId =
   | "dashboard"
   | "trainings"
   | "employees"
+  | "exams"
+  | "funding"
+  | "imports"
   | "budget"
   | "feedback"
   | "reports"
@@ -35,6 +38,10 @@ export const SECTION_ACCESS: Record<SectionId, readonly AppRole[]> = {
   dashboard: ALL,
   trainings: ALL,
   employees: ALL,
+  // Phase 3A.1: экзамены и сертификаты видят все (HR — без сумм); финансирование — только ответственные за деньги; импорт — те, кто вносит данные.
+  exams: ALL,
+  funding: ["ADMIN", "ACADEMY_MANAGER", "FINANCE"],
+  imports: ["ADMIN", "ACADEMY_MANAGER", "HR", "FINANCE"],
   budget: ["ADMIN", "ACADEMY_MANAGER", "FINANCE", "VIEWER"],
   feedback: ALL,
   reports: ALL,

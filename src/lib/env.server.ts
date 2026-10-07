@@ -1,4 +1,5 @@
 import "server-only";
+import { resolveHashSecret } from "@/lib/portal/client-hash";
 
 /**
  * Секретные переменные. Модуль помечен server-only: импорт в клиентский компонент ломает сборку.
@@ -15,4 +16,9 @@ export function getServiceRoleKey(): string {
 export function getSiteUrl(): string {
   const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
   return raw.replace(/\/+$/, "");
+}
+
+/** Секрет хэширования клиента публичного портала (псевдонимизация IP для лимита частоты). Производный от service_role, если свой не задан. */
+export function getPublicRequestHashSecret(): string {
+  return resolveHashSecret({ PUBLIC_REQUEST_HASH_SECRET: process.env.PUBLIC_REQUEST_HASH_SECRET, DERIVE_FROM: process.env.SUPABASE_SERVICE_ROLE_KEY });
 }

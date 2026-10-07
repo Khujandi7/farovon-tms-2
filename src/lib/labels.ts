@@ -3,7 +3,10 @@ import type { Database } from "@/types/database";
 type Enums = Database["public"]["Enums"];
 
 export const TRAINING_STATUS_LABELS: Record<Enums["training_status"], string> = {
+  DRAFT: "Черновик",
   PLANNED: "Запланировано",
+  APPROVED: "Согласовано",
+  REGISTERED: "Регистрация открыта",
   IN_PROGRESS: "Идёт",
   COMPLETED: "Проведено",
   CANCELLED: "Отменено",
@@ -12,7 +15,10 @@ export const TRAINING_STATUS_LABELS: Record<Enums["training_status"], string> = 
 };
 
 export const TRAINING_STATUS_VARIANT: Record<Enums["training_status"], "success" | "brand" | "secondary" | "warning" | "outline"> = {
+  DRAFT: "outline",
   PLANNED: "secondary",
+  APPROVED: "brand",
+  REGISTERED: "brand",
   IN_PROGRESS: "brand",
   COMPLETED: "success",
   CANCELLED: "outline",
@@ -105,6 +111,20 @@ export const AUDIT_TABLE_LABELS: Record<string, string> = {
   employees: "Сотрудник",
   employee_aliases: "Написание ФИО",
   training_trainers: "Тренер тренинга",
+  exams: "Экзамен",
+  exam_costs: "Стоимость экзамена",
+  certificates: "Сертификат",
+  employee_skills: "Навык",
+  development_goals: "Цель развития",
+  skills: "Квалификация",
+  documents: "Документ",
+  learning_agreements: "Соглашение",
+  funding_policies: "Политика финансирования",
+  agreement_repayments: "Погашение",
+  request_links: "Ссылка заявок",
+  import_jobs: "Импорт",
+  learning_event_types: "Тип мероприятия",
+  learning_providers: "Провайдер",
 };
 
 export const FIELD_LABELS: Record<string, string> = {
@@ -146,6 +166,38 @@ export const FIELD_LABELS: Record<string, string> = {
   is_active: "Активен",
   department_id: "Департамент",
   unit_id: "Отдел",
+  event_type_id: "Тип мероприятия",
+  provider_id: "Провайдер",
+  organizer: "Организатор",
+  result_summary: "Итог мероприятия",
+  result: "Результат",
+  result_note: "Примечание к результату",
+  employee_code: "Табельный номер",
+  hire_date: "Дата приёма",
+  termination_date: "Дата увольнения",
+  exam_date: "Дата экзамена",
+  attempt_no: "Попытка",
+  skill_id: "Квалификация",
+  score: "Балл",
+  cert_type: "Тип сертификата",
+  certificate_number: "Номер сертификата",
+  issue_date: "Дата выдачи",
+  expiration_date: "Срок действия",
+  issuing_organization: "Кем выдан",
+  revoked_at: "Отозван",
+  revoked_reason: "Причина отзыва",
+  level: "Уровень",
+  achieved_on: "Достигнут",
+  goal_type: "Тип цели",
+  due_date: "Срок",
+  fee: "Стоимость",
+  fee_tjs: "Стоимость, TJS",
+  fee_date: "Дата оплаты",
+  funding_source: "Источник оплаты",
+  doc_type: "Тип документа",
+  file_name: "Файл",
+  expires_on: "Действует до",
+  notes: "Заметки",
 };
 
 export const TRAINING_STATUS_OPTIONS = (Object.keys(TRAINING_STATUS_LABELS) as Enums["training_status"][]).map((v) => ({ value: v, label: TRAINING_STATUS_LABELS[v] }));

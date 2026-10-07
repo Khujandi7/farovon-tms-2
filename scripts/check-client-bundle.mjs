@@ -8,7 +8,9 @@ if (!fs.existsSync(root)) {
   console.error(`Нет ${root}: сначала выполните сборку (npm run build).`);
   process.exit(2);
 }
-const needles = ["SUPABASE_SERVICE_ROLE_KEY", "service_role", "sb_secret_"];
+// «sb_secret_» как голый префикс встречается в самой supabase-js и в защитной проверке env.ts (startsWith("sb_secret_")) — это не утечка.
+// Утечка — префикс, за которым идёт тело ключа.
+const needles = ["SUPABASE_SERVICE_ROLE_KEY", "service_role", /sb_secret_[A-Za-z0-9_-]{16,}/];
 const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (secret && secret.length >= 8) needles.push(secret);
 else console.warn("ВНИМАНИЕ: SUPABASE_SERVICE_ROLE_KEY не задан при сборке — значение ключа проверить нечем (проверяются только имена).");
@@ -25,7 +27,7 @@ const files = [];
 const hits = [];
 for (const f of files) {
   const text = fs.readFileSync(f, "utf8");
-  for (const n of needles) if (text.includes(n)) hits.push(`${path.relative(process.cwd(), f)}: «${n === secret ? "<значение SUPABASE_SERVICE_ROLE_KEY>" : n}»`);
+  for (const n of needles) if (typeof n === "string" ? text.includes(n) : n.test(text)) hits.push(`${path.relative(process.cwd(), f)}: «${n === secret ? "<значение SUPABASE_SERVICE_ROLE_KEY>" : String(n)}»`);
 }
 if (hits.length) {
   console.error("УТЕЧКА В КЛИЕНТСКИЙ БАНДЛ:\n" + hits.join("\n"));

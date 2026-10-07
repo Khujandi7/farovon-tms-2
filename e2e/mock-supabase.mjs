@@ -3,6 +3,7 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import { handlePhase3 } from "./mock-phase3.mjs";
+import { handleFallback, handlePhase3a1, handlePublic, portalStore } from "./mock-phase3a1.mjs";
 
 export const PORT = Number(process.env.MOCK_SUPABASE_PORT ?? 54399);
 const SECRET = "e2e-only-secret";
@@ -200,12 +201,17 @@ export const createMockServer = () => http.createServer(async (req, res) => {
   if (url.pathname === "/__mock/reset" || url.pathname === "/__mock/audit") return handlePhase3(req, res, url, body, null, null);
 
   // ---- PostgREST: всё ниже требует вошедшего пользователя ----
+  if (url.pathname === "/__mock/portal") return send(res, 200, portalStore.submitted);
   if (url.pathname.startsWith("/rest/v1/")) {
+    if (isService && handlePublic(req, res, url, body)) return;
+    if (url.pathname.startsWith("/rest/v1/rpc/public_request")) return send(res, 401, { code: "42501", message: "permission denied" });
     if (!entry) return send(res, 401, { message: "JWT expired" });
     const [, u] = entry;
     const role = appRole(u);
     if (url.pathname === "/rest/v1/rpc/app_role") return send(res, 200, role);
-    if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3(req, res, url, body, role, u)) return;
+    const special = ["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles", "/rest/v1/trainings"].includes(url.pathname);
+    if (!special && handlePhase3a1(req, res, url, body, role)) return;
+    if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3(req, res, url, body, role, u, claims?.session_id)) return;
     if (url.pathname === "/rest/v1/rpc/kpi_year") return send(res, 200, [kpi(role === "HR")]);
     if (url.pathname === "/rest/v1/trainings") return send(res, 200, trainings);
     if (url.pathname === "/rest/v1/profiles") {
@@ -243,6 +249,7 @@ export const createMockServer = () => http.createServer(async (req, res) => {
         return send(res, 200, [{ id: target.id }]);
       }
     }
+    if (!special && handleFallback(req, res, url)) return;
     return send(res, 404, { message: `mock: ${url.pathname} не реализован` });
   }
   send(res, 404, { message: "not found" });
