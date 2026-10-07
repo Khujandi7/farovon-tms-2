@@ -1312,6 +1312,76 @@ export type Database = {
           },
         ]
       }
+      feedback_invitations: {
+        Row: {
+          answered_at: string | null
+          employee_id: string
+          id: string
+          invited_at: string
+          invited_by: string | null
+          participant_id: string
+          status: string
+          training_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          answered_at?: string | null
+          employee_id: string
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          participant_id: string
+          status?: string
+          training_id: string
+        }
+        Update: {
+          answered_at?: string | null
+          employee_id?: string
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          participant_id?: string
+          status?: string
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_invitations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_invitations_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "training_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_invitations_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_invitations_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_financials"
+            referencedColumns: ["training_id"]
+          },
+          {
+            foreignKeyName: "feedback_invitations_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "v_training_list"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback_respondents: {
         Row: {
           dedupe_key: string
@@ -2460,6 +2530,7 @@ export type Database = {
           full_name: string
           id: string
           kind: Database["public"]["Enums"]["trainer_kind"]
+          organization: string | null
         }
         ComputedFields: never
         Insert: {
@@ -2469,6 +2540,7 @@ export type Database = {
           full_name: string
           id?: string
           kind: Database["public"]["Enums"]["trainer_kind"]
+          organization?: string | null
         }
         Update: {
           canonical_id?: string
@@ -2477,6 +2549,7 @@ export type Database = {
           full_name?: string
           id?: string
           kind?: Database["public"]["Enums"]["trainer_kind"]
+          organization?: string | null
         }
         Relationships: [
           {
@@ -2595,6 +2668,7 @@ export type Database = {
           created_by: string | null
           department_id: number | null
           direction: string | null
+          expected_result: string | null
           format: Database["public"]["Enums"]["training_format"] | null
           goal: string | null
           id: string
@@ -2605,6 +2679,7 @@ export type Database = {
           period_raw: string | null
           plan_year: number
           planned_year: number | null
+          priority: string
           request_date: string | null
           request_link_id: string | null
           requester_id: string | null
@@ -2632,6 +2707,7 @@ export type Database = {
           created_by?: string | null
           department_id?: number | null
           direction?: string | null
+          expected_result?: string | null
           format?: Database["public"]["Enums"]["training_format"] | null
           goal?: string | null
           id?: string
@@ -2642,6 +2718,7 @@ export type Database = {
           period_raw?: string | null
           plan_year: number
           planned_year?: number | null
+          priority?: string
           request_date?: string | null
           request_link_id?: string | null
           requester_id?: string | null
@@ -2668,6 +2745,7 @@ export type Database = {
           created_by?: string | null
           department_id?: number | null
           direction?: string | null
+          expected_result?: string | null
           format?: Database["public"]["Enums"]["training_format"] | null
           goal?: string | null
           id?: string
@@ -2678,6 +2756,7 @@ export type Database = {
           period_raw?: string | null
           plan_year?: number
           planned_year?: number | null
+          priority?: string
           request_date?: string | null
           request_link_id?: string | null
           requester_id?: string | null
@@ -2753,38 +2832,60 @@ export type Database = {
         Row: {
           comment: string | null
           end_date: string
+          end_time: string | null
           hours: number
           id: string
           legacy_reestr_id: number | null
           location: string | null
+          room: string | null
           session_no: number
           start_date: string
+          start_time: string | null
+          status: string
+          trainer_id: string | null
           training_id: string
         }
         ComputedFields: never
         Insert: {
           comment?: string | null
           end_date: string
+          end_time?: string | null
           hours: number
           id?: string
           legacy_reestr_id?: number | null
           location?: string | null
+          room?: string | null
           session_no: number
           start_date: string
+          start_time?: string | null
+          status?: string
+          trainer_id?: string | null
           training_id: string
         }
         Update: {
           comment?: string | null
           end_date?: string
+          end_time?: string | null
           hours?: number
           id?: string
           legacy_reestr_id?: number | null
           location?: string | null
+          room?: string | null
           session_no?: number
           start_date?: string
+          start_time?: string | null
+          status?: string
+          trainer_id?: string | null
           training_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "training_sessions_trainer_id_fkey"
+            columns: ["trainer_id"]
+            isOneToOne: false
+            referencedRelation: "trainers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "training_sessions_training_id_fkey"
             columns: ["training_id"]
@@ -2810,15 +2911,24 @@ export type Database = {
       }
       training_trainers: {
         Row: {
+          created_at: string
+          id: string
+          role: string
           trainer_id: string
           training_id: string
         }
         ComputedFields: never
         Insert: {
+          created_at?: string
+          id?: string
+          role?: string
           trainer_id: string
           training_id: string
         }
         Update: {
+          created_at?: string
+          id?: string
+          role?: string
           trainer_id?: string
           training_id?: string
         }
@@ -3330,10 +3440,24 @@ export type Database = {
         Returns: string
       }
       create_training: { Args: { p: Json; p_reason?: string }; Returns: string }
+      create_training_from_request: {
+        Args: { p?: Json; p_reason?: string; p_request: string }
+        Returns: string
+      }
       dearmor: { Args: { "": string }; Returns: string }
       delete_session: {
         Args: { p_reason: string; p_session: string }
         Returns: undefined
+      }
+      department_participation: {
+        Args: { p_year: number }
+        Returns: {
+          department: string
+          events: number
+          man_hours: number
+          participants: number
+          unique_employees: number
+        }[]
       }
       doc_is_financial: { Args: { p_type: string }; Returns: boolean }
       dq_resolve: {
@@ -3341,6 +3465,14 @@ export type Database = {
         Returns: undefined
       }
       dq_scan: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          auto_fixed: number
+          opened: number
+          total_open: number
+        }[]
+      }
+      dq_scan_lifecycle: {
         Args: Record<PropertyKey, never>
         Returns: {
           auto_fixed: number
@@ -3462,6 +3594,16 @@ export type Database = {
           title: string
         }[]
       }
+      global_search_ext: {
+        Args: { p_limit?: number; p_q: string }
+        Returns: {
+          href: string
+          id: string
+          kind: string
+          subtitle: string
+          title: string
+        }[]
+      }
       has_attendance: { Args: { p_training: string }; Returns: boolean }
       has_financial_access: {
         Args: Record<PropertyKey, never>
@@ -3536,6 +3678,27 @@ export type Database = {
           variance_tjs: number
         }[]
       }
+      lifecycle_kpis: {
+        Args: { p_year: number }
+        Returns: {
+          actual_cost_tjs: number
+          answered: number
+          avg_feedback: number
+          certificates_issued: number
+          cost_per_learning_hour: number
+          cost_per_participant: number
+          delivered_events: number
+          exams_passed: number
+          exams_total: number
+          invited: number
+          man_hours: number
+          participants: number
+          planned_events: number
+          response_rate: number
+          unique_trained: number
+          unplanned_events: number
+        }[]
+      }
       link_request: {
         Args: {
           p_confirm?: boolean
@@ -3585,6 +3748,10 @@ export type Database = {
       planned_total_tjs: { Args: { p_version: number }; Returns: number }
       planned_total_usd: { Args: { p_version: number }; Returns: number }
       public_request_options: { Args: { p_token: string }; Returns: Json }
+      record_feedback_response: {
+        Args: { p_comment?: string; p_participant: string; p_scores: Json }
+        Returns: string
+      }
       record_repayment: {
         Args: {
           p_agreement: string
@@ -3605,6 +3772,10 @@ export type Database = {
       }
       remove_participant: {
         Args: { p_participant: string; p_reason: string }
+        Returns: undefined
+      }
+      remove_training_trainer: {
+        Args: { p_reason: string; p_trainer: string; p_training: string }
         Returns: undefined
       }
       rename_org_unit: {
@@ -3637,6 +3808,10 @@ export type Database = {
       }
       saving_amount_tjs: { Args: { p_year: number }; Returns: number }
       saving_percent: { Args: { p_year: number }; Returns: number }
+      send_feedback_invitations: {
+        Args: { p_reason?: string; p_training: string }
+        Returns: number
+      }
       set_attendance: {
         Args: { p_reason: string; p_updates: Json }
         Returns: number
@@ -3676,17 +3851,96 @@ export type Database = {
         Args: { p_archived: boolean; p_id: string; p_reason: string }
         Returns: undefined
       }
+      set_request_details: {
+        Args: { p: Json; p_id: string }
+        Returns: undefined
+      }
       set_request_link_active: {
         Args: { p_active: boolean; p_id: string; p_reason: string }
+        Returns: undefined
+      }
+      set_session_details: {
+        Args: { p: Json; p_reason?: string; p_session: string }
         Returns: undefined
       }
       set_training_archived: {
         Args: { p_archived: boolean; p_id: string; p_reason: string }
         Returns: undefined
       }
+      set_training_trainer: {
+        Args: {
+          p_reason?: string
+          p_role?: string
+          p_trainer: string
+          p_training: string
+        }
+        Returns: undefined
+      }
       submit_public_request: {
         Args: { p: Json; p_client: string; p_token: string }
         Returns: Json
+      }
+      trainer_performance: {
+        Args: { p_year: number }
+        Returns: {
+          avg_trainer_score: number
+          events: number
+          kind: Database["public"]["Enums"]["trainer_kind"]
+          man_hours: number
+          organization: string
+          participants: number
+          responses: number
+          scores_hidden: boolean
+          trainer: string
+          trainer_id: string
+        }[]
+      }
+      training_feedback_summary: {
+        Args: { p_training: string }
+        Returns: {
+          answered: number
+          final_score: number
+          invited: number
+          materials: number
+          org: number
+          response_rate: number
+          scores_hidden: boolean
+          trainer: number
+        }[]
+      }
+      training_results: {
+        Args: { p_training: string }
+        Returns: {
+          attended: boolean
+          certificate_id: string
+          certificate_number: string
+          employee_id: string
+          exam_result: string
+          full_name: string
+          participant_id: string
+          result: string
+          sessions_present: number
+          sessions_total: number
+          status: string
+        }[]
+      }
+      training_summary: {
+        Args: { p_training: string }
+        Returns: {
+          actual_cost_tjs: number
+          actual_man_hours: number
+          added_participants: number
+          budget_tjs: number
+          completed_participants: number
+          cost_per_learning_hour: number
+          cost_per_participant: number
+          planned_hours: number
+          planned_participants: number
+          present_participants: number
+          remaining_budget_tjs: number
+          sessions: number
+          trainers: number
+        }[]
       }
       training_transition_allowed: {
         Args: { p_from: string; p_to: string }
@@ -3760,6 +4014,7 @@ export type Database = {
         Args: { p: Json; p_id: number; p_reason?: string }
         Returns: number
       }
+      upsert_trainer: { Args: { p: Json; p_trainer?: string }; Returns: string }
       utilization_percent: { Args: { p_year: number }; Returns: number }
       variance_tjs: { Args: { p_year: number }; Returns: number }
       void_expense: {
