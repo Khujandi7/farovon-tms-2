@@ -10,7 +10,8 @@ export async function globalSearch(query: string): Promise<Result<SearchRow[]>> 
   if (!actor.ok) return actor;
   const q = typeof query === "string" ? query.trim().slice(0, 100) : "";
   if (q.length < 2) return { ok: true, data: [] };
-  const res = await callRpc("global_search", { p_q: q, p_limit: 8 });
+  const [res, ext] = await Promise.all([callRpc("global_search", { p_q: q, p_limit: 8 }), callRpc("global_search_ext", { p_q: q, p_limit: 8 })]);
   if (!res.ok) return res;
-  return { ok: true, data: res.data as SearchRow[] };
+  // тренеры и документы мероприятий (M21); сбой расширения не ломает основной поиск
+  return { ok: true, data: [...(res.data as SearchRow[]), ...(ext.ok ? (ext.data as SearchRow[]) : [])] };
 }

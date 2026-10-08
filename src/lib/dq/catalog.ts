@@ -197,6 +197,63 @@ export const DQ_RULES: Record<string, Rule> = {
     description: "Строка импорта требует решения: применить, сопоставить или пропустить.",
     actions: (i) => [{ kind: "open", label: "Открыть импорт", href: importJob(i) }, { kind: "match", label: "Разобрать строку", href: importJob(i) }, review],
   },
+
+  // ---- Phase 3A.2: сквозные правила жизненного цикла ----
+  TRAINING_NO_TRAINER: {
+    title: "У обучения нет тренера",
+    description: "Мероприятие идёт или проведено, а тренер не назначен: отчёты и обратная связь не смогут его учесть.",
+    actions: (i) => [{ kind: "open", label: "Открыть", href: training(i) }, { kind: "fix", label: "Назначить тренера", href: training(i, "trainers") }, review],
+  },
+  FEEDBACK_NO_TRAINING: {
+    title: "Обратная связь без обучения",
+    description: "Есть ответы анкет, но набор не привязан ни к одному обучению.",
+    actions: () => [review],
+  },
+  FEEDBACK_NON_PARTICIPANT: {
+    title: "Отзыв от не-участника",
+    description: "Обратную связь по обучению дал сотрудник, которого нет среди участников.",
+    actions: (i) => list(to("open", "Открыть обучение", i.details?.training_id ? `/trainings/${detail(i, "training_id")}?tab=participants` : undefined), review, confirm),
+  },
+  FEEDBACK_NO_INVITATION: {
+    title: "Ответов больше, чем приглашений",
+    description: "Есть ответы без приглашения участнику.",
+    actions: (i) => list(to("open", "Открыть обратную связь", i.details?.training_id ? `/trainings/${detail(i, "training_id")}?tab=feedback` : undefined), review, confirm),
+  },
+  CERT_NOT_PARTICIPANT: {
+    title: "Сертификат без участия в обучении",
+    description: "Сертификат связан с обучением, где сотрудник не числится участником.",
+    actions: (i) => list(to("open", "Открыть сертификат", dossier(i, "certificates")), to("fix", "Добавить в участники", i.details?.training_id ? `/trainings/${detail(i, "training_id")}?tab=participants` : undefined), review, confirm),
+  },
+  EXPENSE_ON_CANCELLED: {
+    title: "Расходы по отменённому обучению",
+    description: "У отменённого или несостоявшегося мероприятия есть расходы.",
+    actions: (i) => [{ kind: "open", label: "Открыть", href: training(i) }, { kind: "fix", label: "Проверить расходы", href: training(i, "expenses") }, confirm, review],
+  },
+  SESSION_OUTSIDE_RANGE: {
+    title: "Заход вне дат обучения",
+    description: "Даты захода выходят за период мероприятия.",
+    actions: (i) => list(to("open", "Открыть", i.details?.training_id ? `/trainings/${detail(i, "training_id")}?tab=sessions` : undefined), review),
+  },
+  ATTENDANCE_ON_CANCELLED_SESSION: {
+    title: "Присутствие на отменённом заходе",
+    description: "На отменённом заходе отмечены присутствующие: человеко-часы будут завышены.",
+    actions: (i) => list(to("open", "Открыть посещаемость", i.details?.training_id ? `/trainings/${detail(i, "training_id")}?tab=attendance` : undefined), review),
+  },
+  PARTICIPANT_NO_SNAPSHOT: {
+    title: "Нет снимка подразделения участника",
+    description: "У участника не записано подразделение на момент обучения: аналитика по подразделениям его не учтёт.",
+    actions: (i) => list(to("open", "Открыть обучение", i.details?.training_id ? `/trainings/${detail(i, "training_id")}?tab=participants` : undefined), review),
+  },
+  PARTICIPANT_NO_RESULT: {
+    title: "У участников не указан результат",
+    description: "Обучение завершено, но результат участников не отмечен.",
+    actions: (i) => [{ kind: "open", label: "Открыть", href: training(i, "results") }, { kind: "fix", label: "Отметить результаты", href: training(i, "participants") }, confirm, review],
+  },
+  COMPLETED_NO_FEEDBACK_REQUEST: {
+    title: "Обратная связь не запрашивалась",
+    description: "Обучение проведено более недели назад, а анкеты участникам не отправлялись.",
+    actions: (i) => [{ kind: "open", label: "Открыть", href: training(i, "feedback") }, confirm, review],
+  },
 };
 
 const FALLBACK: Rule = { title: "Замечание", description: "Проверьте данные и примите решение.", actions: () => [review, confirm] };

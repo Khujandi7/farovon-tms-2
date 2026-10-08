@@ -14,6 +14,7 @@ import { ParticipantsPanel, type ParticipantRow } from "@/components/trainings/p
 import { RequestLinkPanel } from "@/components/trainings/request-link-panel";
 import { StatusControl } from "@/components/trainings/status-control";
 import { SessionsPanel, type SessionRow } from "@/components/trainings/sessions-panel";
+import { CertificatesForTraining, DocumentsForTraining, FeedbackTab, ParticipantFunnel, ResultsTab, TrainersTab, loadAssignedTrainers, type TrainingSummary } from "@/components/trainings/lifecycle-tabs";
 import { EditableField } from "@/components/workflow/editable-field";
 import { canAccessSection } from "@/lib/auth/roles";
 import { requireSession } from "@/lib/auth/session";
@@ -41,10 +42,15 @@ export const dynamic = "force-dynamic";
 
 const TABS = [
   { id: "overview", label: "Обзор" },
-  { id: "sessions", label: "Заходы" },
+  { id: "sessions", label: "Сессии" },
+  { id: "trainers", label: "Тренеры" },
   { id: "participants", label: "Участники" },
   { id: "attendance", label: "Посещаемость" },
   { id: "expenses", label: "Расходы" },
+  { id: "feedback", label: "Обратная связь" },
+  { id: "results", label: "Результаты" },
+  { id: "certificates", label: "Сертификаты" },
+  { id: "documents", label: "Документы" },
   { id: "audit", label: "История" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -73,6 +79,16 @@ export default async function TrainingPage({ params, searchParams }: { params: P
   const showMoney = role !== "HR";
 
   const { data: perParticipant } = showMoney ? await supabase.rpc("cost_per_participant", { p_training: id }) : { data: null };
+  const { data: sumRows } = await supabase.rpc("training_summary", { p_training: id });
+  const sum = sumRows?.[0];
+  const summary: TrainingSummary = {
+    planned_participants: sum?.planned_participants ?? t.participants_planned, added_participants: sum?.added_participants ?? 0, present_participants: sum?.present_participants ?? 0, completed_participants: sum?.completed_participants ?? 0,
+    actual_cost_tjs: sum?.actual_cost_tjs === null || sum?.actual_cost_tjs === undefined ? null : Number(sum.actual_cost_tjs),
+    cost_per_participant: sum?.cost_per_participant === null || sum?.cost_per_participant === undefined ? null : Number(sum.cost_per_participant),
+    cost_per_learning_hour: sum?.cost_per_learning_hour === null || sum?.cost_per_learning_hour === undefined ? null : Number(sum.cost_per_learning_hour),
+    remaining_budget_tjs: sum?.remaining_budget_tjs === null || sum?.remaining_budget_tjs === undefined ? null : Number(sum.remaining_budget_tjs),
+    budget_tjs: sum?.budget_tjs === null || sum?.budget_tjs === undefined ? null : Number(sum.budget_tjs),
+  };
 
   const [users, linked] = await Promise.all([
     supabase.from("profiles").select("id, full_name").in("id", [t.created_by, t.updated_by].filter((x): x is string => !!x)),
@@ -106,6 +122,8 @@ export default async function TrainingPage({ params, searchParams }: { params: P
         <Kpi icon={Coins} label="Факт расходов" value={showMoney ? formatMoney(v.actual_tjs) : "Ограничено"} sub={showMoney && perParticipant !== null && perParticipant !== undefined ? `на участника ${formatMoney(Number(perParticipant))}` : undefined} testId="kpi-actual" />
       </section>
 
+      <ParticipantFunnel s={summary} />
+
       <nav aria-label="Разделы тренинга" className="-mx-1 flex gap-1 overflow-x-auto border-b px-1">
         {TABS.map((x) => (
           <Link
@@ -123,9 +141,14 @@ export default async function TrainingPage({ params, searchParams }: { params: P
         <Overview t={t} canEdit={canEdit} role={role} linked={linked.data} createdBy={userName(t.created_by)} updatedBy={userName(t.updated_by)} />
       )}
       {tab === "sessions" && <SessionsTab id={id} canEdit={can(role, "training")} archived={archived} attendanceMode={v.attendance_mode ?? false} />}
+      {tab === "trainers" && <TrainersTab id={id} role={role} archived={archived} />}
       {tab === "participants" && <ParticipantsTab id={id} canEdit={can(role, "participants")} archived={archived} canAddEmployees={can(role, "employee")} />}
       {tab === "attendance" && <AttendanceTab id={id} canEdit={can(role, "attendance")} archived={archived} attendanceMode={v.attendance_mode ?? false} />}
-      {tab === "expenses" && <ExpensesTab id={id} role={role} archived={archived} total={v.actual_tjs} perParticipant={perParticipant === null || perParticipant === undefined ? null : Number(perParticipant)} />}
+      {tab === "expenses" && <ExpensesTab id={id} role={role} archived={archived} total={v.actual_tjs} perParticipant={perParticipant === null || perParticipant === undefined ? null : Number(perParticipant)} summary={summary} />}
+      {tab === "feedback" && <FeedbackTab id={id} role={role} archived={archived} />}
+      {tab === "results" && <ResultsTab id={id} />}
+      {tab === "certificates" && <CertificatesForTraining id={id} />}
+      {tab === "documents" && <DocumentsForTraining id={id} role={role} />}
       {tab === "audit" && <AuditTab id={id} role={role} />}
     </div>
   );
@@ -266,18 +289,19 @@ async function loadParticipants(id: string): Promise<ParticipantRow[]> {
 async function loadSessions(id: string): Promise<SessionRow[]> {
   const supabase = await createClient();
   const [{ data }, { data: att }] = await Promise.all([
-    supabase.from("training_sessions").select("id, session_no, start_date, end_date, hours, location, comment").eq("training_id", id).order("session_no"),
+    supabase.from("training_sessions").select("id, session_no, start_date, end_date, hours, location, comment, start_time, end_time, room, trainer_id, status").eq("training_id", id).order("session_no"),
     supabase.from("session_attendance").select("session_id, status, participant:training_participants!inner(training_id)").eq("participant.training_id", id).eq("status", "PRESENT").limit(50000),
   ]);
   const present = new Map<string, number>();
   for (const a of att ?? []) present.set(a.session_id, (present.get(a.session_id) ?? 0) + 1);
-  return (data ?? []).map((s) => ({ ...s, present: present.get(s.id) ?? 0 }));
+  return (data ?? []).map((s) => ({ ...s, status: (s.status === "HELD" || s.status === "CANCELLED" ? s.status : "PLANNED") as "PLANNED" | "HELD" | "CANCELLED", present: present.get(s.id) ?? 0 }));
 }
 
 async function SessionsTab({ id, canEdit, archived, attendanceMode }: { id: string; canEdit: boolean; archived: boolean; attendanceMode: boolean }) {
   const sessions = await loadSessions(id);
   void attendanceMode;
-  return <SessionsPanel trainingId={id} sessions={sessions} canEdit={canEdit} archived={archived} />;
+  const trainers = (await loadAssignedTrainers(id)).map((x) => ({ id: x.trainerId, name: x.name }));
+  return <SessionsPanel trainingId={id} sessions={sessions} canEdit={canEdit} archived={archived} trainers={trainers} />;
 }
 
 async function ParticipantsTab({ id, canEdit, archived, canAddEmployees }: { id: string; canEdit: boolean; archived: boolean; canAddEmployees: boolean }) {
@@ -304,7 +328,7 @@ async function AttendanceTab({ id, canEdit, archived, attendanceMode }: { id: st
   return <AttendanceMatrix trainingId={id} sessions={sessions} participants={participants} cells={cells} attendanceMode={attendanceMode} canEdit={canEdit} archived={archived} />;
 }
 
-async function ExpensesTab({ id, role, archived, total, perParticipant }: { id: string; role: import("@/lib/auth/roles").AppRole; archived: boolean; total: number | null; perParticipant: number | null }) {
+async function ExpensesTab({ id, role, archived, total, perParticipant, summary }: { id: string; role: import("@/lib/auth/roles").AppRole; archived: boolean; total: number | null; perParticipant: number | null; summary: TrainingSummary }) {
   const supabase = await createClient();
   const financialAccess = can(role, "financialRead");
   const [{ data: rows }, { data: cats }] = financialAccess
@@ -327,6 +351,14 @@ async function ExpensesTab({ id, role, archived, total, perParticipant }: { id: 
     void_reason: e.void_reason,
   }));
   return (
+    <div className="space-y-3">
+      {financialAccess && (
+        <p className="text-sm" data-testid="expense-metrics">
+          Факт: <strong>{summary.actual_cost_tjs === null ? "—" : formatMoney(summary.actual_cost_tjs)}</strong>
+          {summary.budget_tjs !== null && <> · Бюджет заявки: <strong>{formatMoney(summary.budget_tjs)}</strong> · Остаток: <strong>{summary.remaining_budget_tjs === null ? "—" : formatMoney(summary.remaining_budget_tjs)}</strong></>}
+          {" "}· На участника: <strong>{summary.cost_per_participant === null ? "—" : formatMoney(summary.cost_per_participant)}</strong> · За час обучения: <strong>{summary.cost_per_learning_hour === null ? "—" : formatMoney(summary.cost_per_learning_hour)}</strong>
+        </p>
+      )}
     <ExpensesPanel
       trainingId={id}
       expenses={expenses}
@@ -338,6 +370,7 @@ async function ExpensesTab({ id, role, archived, total, perParticipant }: { id: 
       totalTjs={total}
       perParticipant={perParticipant}
     />
+    </div>
   );
 }
 

@@ -95,3 +95,10 @@ M13 RPC-процессы; страницы `/trainings`, `/trainings/[id]` (вк
 `/notifications`, `/settings/request-links`, публичные `/request` и `/request/[token]`; глобальный поиск Ctrl+K, колокольчик уведомлений,
 блок «Требует внимания» на дашборде, крошки и «← Назад».
 Тесты: SQL 207 (`phase3a1_tests.sql`) + прежние 44/118/12/35/111, Vitest 389, Playwright 128 (desktop + mobile).
+
+## Phase 3A.2 — End-to-end learning lifecycle (ветка `phase-3a-2-learning-lifecycle`, 07.10.2026)
+
+M21 (аддитивная): тренеры с ролями и справочником, детали заходов, обучение из заявки, приглашения и сводка обратной связи, `training_summary`,
+`training_results`, `lifecycle_kpis`/`department_participation`/`trainer_performance`, `global_search_ext`, `dq_scan_lifecycle`.
+UI: карточка обучения с 11 вкладками, `/trainers`, `/feedback`, `/reports`, плитки дашборда. Тесты: SQL 66/66 (phase3a2), e2e `lifecycle.spec.ts`.
+Production-миграции не применялись. Документы: `docs/PHASE_3A2_*.md`.

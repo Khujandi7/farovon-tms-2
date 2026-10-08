@@ -13,6 +13,12 @@ export function formatMoney(value: number | null | undefined, currency = "TJS"):
   return `${tjs.format(value)} ${currency}`;
 }
 
+/** Оценки и доли с дробной частью (до 2 знаков): 4,4 не должно превращаться в 4. */
+export function formatDecimal(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return EMPTY_VALUE;
+  return tjs.format(value);
+}
+
 export function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return EMPTY_VALUE;
   return int.format(value);

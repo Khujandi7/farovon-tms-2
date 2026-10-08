@@ -6,6 +6,7 @@ import { EmptyState, ErrorState } from "@/components/common/states";
 import { AttentionPanel } from "@/components/dashboard/attention-panel";
 import { ChartCard } from "@/components/dashboard/chart-card";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { LifecycleKpis } from "@/components/dashboard/lifecycle-kpis";
 import { YearFilter } from "@/components/dashboard/year-filter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </div>
               )}
             </section>
+
+            <LifecycleKpis year={year} />
 
             <section className="grid gap-4 lg:grid-cols-2" aria-label="Диаграммы">
               <ChartCard title="Расходы по месяцам" description={`Фактические расходы, ${year}`} />

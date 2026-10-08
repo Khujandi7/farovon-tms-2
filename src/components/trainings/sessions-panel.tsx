@@ -10,12 +10,13 @@ import { EmptyState } from "@/components/common/states";
 import { ReasonDialog } from "@/components/workflow/reason-dialog";
 import { useToast } from "@/components/workflow/toast";
 import { deleteSession, saveSession } from "@/app/(app)/trainings/actions";
+import { SESSION_STATUS_LABELS, SessionDetailsDialog } from "@/components/trainings/session-details-dialog";
 import { formatDateRange, formatNumber } from "@/lib/format";
 
-export type SessionRow = { id: string; session_no: number; start_date: string; end_date: string; hours: number; location: string | null; comment: string | null; present: number };
+export type SessionRow = { id: string; session_no: number; start_date: string; end_date: string; hours: number; location: string | null; comment: string | null; present: number; start_time?: string | null; end_time?: string | null; room?: string | null; trainer_id?: string | null; status?: "PLANNED" | "HELD" | "CANCELLED" };
 
 /** Заходы тренинга. Часы и даты тренинга считаются по заходам; правка часов/дат захода требует причину. */
-export function SessionsPanel({ trainingId, sessions, canEdit, archived }: { trainingId: string; sessions: SessionRow[]; canEdit: boolean; archived: boolean }) {
+export function SessionsPanel({ trainingId, sessions, canEdit, archived, trainers = [] }: { trainingId: string; sessions: SessionRow[]; canEdit: boolean; archived: boolean; trainers?: { id: string; name: string }[] }) {
   const router = useRouter();
   const { notify } = useToast();
   const [editing, setEditing] = useState<SessionRow | "new" | null>(null);
@@ -70,12 +71,17 @@ export function SessionsPanel({ trainingId, sessions, canEdit, archived }: { tra
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Присутствовали: {s.present}
+                  {s.start_time ? ` · ${s.start_time.slice(0, 5)}${s.end_time ? `–${s.end_time.slice(0, 5)}` : ""}` : ""}
+                  {s.room ? ` · ${s.room}` : ""}
+                  {s.trainer_id ? ` · ${trainers.find((t) => t.id === s.trainer_id)?.name ?? ""}` : ""}
+                  {s.status && s.status !== "PLANNED" ? ` · ${SESSION_STATUS_LABELS[s.status]}` : ""}
                   {s.location ? ` · ${s.location}` : ""}
                   {s.comment ? ` · ${s.comment}` : ""}
                 </p>
               </div>
               {editable && (
                 <div className="flex gap-1">
+                  <SessionDetailsDialog trainingId={trainingId} session={{ id: s.id, session_no: s.session_no, start_time: s.start_time ?? null, end_time: s.end_time ?? null, room: s.room ?? null, trainer_id: s.trainer_id ?? null, status: s.status ?? "PLANNED" }} trainers={trainers} />
                   <Button size="icon" variant="ghost" aria-label={`Изменить заход ${s.session_no}`} onClick={() => { setError(undefined); setFieldErrors({}); setEditing(s); }}>
                     <Pencil aria-hidden="true" />
                   </Button>

@@ -32,7 +32,10 @@ export default async function DataQualityPage({ searchParams }: { searchParams: 
         const canAct = can(session.role, "dq");
         const supabase = await createClient();
         // Для ADMIN и ACADEMY_MANAGER проверка выполняется при открытии страницы: исправленные данные закрывают проблемы сами.
-        if (canAct) await supabase.rpc("dq_scan");
+        if (canAct) {
+          await supabase.rpc("dq_scan");
+          await supabase.rpc("dq_scan_lifecycle");
+        }
 
         let q = supabase.from("dq_issues").select("id, rule_code, severity, entity_table, entity_id, message, suggestion, status, details, resolution, updated_at").order("created_at", { ascending: false }).limit(300);
         q = status === "active" ? q.in("status", ["OPEN", "IN_REVIEW"]) : q.eq("status", status);
