@@ -173,4 +173,3 @@ export async function setGoogleSourceActive(input: unknown): Promise<Result> {
   revalidatePath("/employees/import");
   return { ok: true, message: p.data.active ? "Источник включён." : "Источник отключён.", data: undefined };
 }
-
