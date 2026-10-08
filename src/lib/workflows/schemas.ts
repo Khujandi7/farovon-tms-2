@@ -43,6 +43,8 @@ export const createTrainingSchema = z
     provider_id: z.preprocess((v) => (v === "" || v === null || v === undefined ? null : v), uuid.nullable()),
     organizer: optText(300),
     status: z.enum(["DRAFT", "PLANNED"]).nullish().transform((v) => v ?? null),
+    /** Phase 3B: выбранные из справочника сотрудники (участники). Дубликаты убираются. */
+    employee_ids: z.array(uuid).max(3000, { message: "Не больше 3000 участников за раз" }).nullish().transform((v) => [...new Set(v ?? [])]),
   })
   .refine((v) => !v.end_date || v.end_date >= v.start_date, { path: ["end_date"], message: "Окончание раньше начала" });
 export type CreateTrainingInput = z.input<typeof createTrainingSchema>;

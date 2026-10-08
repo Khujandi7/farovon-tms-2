@@ -102,3 +102,10 @@ M21 (аддитивная): тренеры с ролями и справочни
 `training_results`, `lifecycle_kpis`/`department_participation`/`trainer_performance`, `global_search_ext`, `dq_scan_lifecycle`.
 UI: карточка обучения с 11 вкладками, `/trainers`, `/feedback`, `/reports`, плитки дашборда. Тесты: SQL 66/66 (phase3a2), e2e `lifecycle.spec.ts`.
 Production-миграции не применялись. Документы: `docs/PHASE_3A2_*.md`.
+
+## Phase 3B — Google Sheets и выбор участников (ветка `phase-3b-google-sheets-participants`, 09.10.2026)
+
+M22 (аддитивная): `import_sources`, `import_source_members`, `save_import_source`, `record_source_sync`, `create_training_with_participants`.
+Сервер: `src/lib/google/*` (сервисный аккаунт, только чтение), `src/app/(app)/imports/google-actions.ts`. UI: режим «Google Sheets» в мастере, панель источников
+и «Синхронизировать сейчас», выбор участников при создании обучения (`/trainings/new`, `?request=<id>`). Тесты: SQL phase3b 43/43, Vitest, e2e `phase3b.spec.ts`.
+Production-миграции не применялись. Документы: `docs/DEPLOYMENT.md` §8, `docs/DECISIONS.md` D16.

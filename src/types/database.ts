@@ -1798,6 +1798,145 @@ export type Database = {
           },
         ]
       }
+      import_source_members: {
+        Row: {
+          employee_id: string
+          first_seen_at: string
+          last_seen_at: string
+          last_seen_job: string | null
+          missing_since: string | null
+          source_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          employee_id: string
+          first_seen_at?: string
+          last_seen_at?: string
+          last_seen_job?: string | null
+          missing_since?: string | null
+          source_id: string
+        }
+        Update: {
+          employee_id?: string
+          first_seen_at?: string
+          last_seen_at?: string
+          last_seen_job?: string | null
+          missing_since?: string | null
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_source_members_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_source_members_last_seen_job_fkey"
+            columns: ["last_seen_job"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_source_members_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "import_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_sources: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity: string
+          header_row: number | null
+          id: string
+          is_active: boolean
+          kind: string
+          last_error: string | null
+          last_job_id: string | null
+          last_stats: NonNullable<Json>
+          last_status: string
+          last_sync_at: string | null
+          mapping: NonNullable<Json>
+          name: string
+          sheet_name: string
+          spreadsheet_id: string
+          spreadsheet_url: string
+          updated_at: string
+          updated_by: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity?: string
+          header_row?: number | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          last_error?: string | null
+          last_job_id?: string | null
+          last_stats?: NonNullable<Json>
+          last_status?: string
+          last_sync_at?: string | null
+          mapping?: NonNullable<Json>
+          name: string
+          sheet_name: string
+          spreadsheet_id: string
+          spreadsheet_url: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity?: string
+          header_row?: number | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          last_error?: string | null
+          last_job_id?: string | null
+          last_stats?: NonNullable<Json>
+          last_status?: string
+          last_sync_at?: string | null
+          mapping?: NonNullable<Json>
+          name?: string
+          sheet_name?: string
+          spreadsheet_id?: string
+          spreadsheet_url?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_sources_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_sources_last_job_id_fkey"
+            columns: ["last_job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_sources_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_agreements: {
         Row: {
           canonical_id: string
@@ -3444,6 +3583,10 @@ export type Database = {
         Args: { p?: Json; p_reason?: string; p_request: string }
         Returns: string
       }
+      create_training_with_participants: {
+        Args: { p: Json; p_employees: string[]; p_reason?: string }
+        Returns: string
+      }
       dearmor: { Args: { "": string }; Returns: string }
       delete_session: {
         Args: { p_reason: string; p_session: string }
@@ -3761,6 +3904,10 @@ export type Database = {
         }
         Returns: string
       }
+      record_source_sync: {
+        Args: { p_error?: string; p_job: string; p_source: string }
+        Returns: Json
+      }
       regenerate_request_link: {
         Args: { p_id: string; p_reason: string }
         Returns: string
@@ -3806,6 +3953,7 @@ export type Database = {
         Args: { p_id: string; p_reason: string; p_revoked: boolean }
         Returns: undefined
       }
+      save_import_source: { Args: { p: Json; p_id?: string }; Returns: string }
       saving_amount_tjs: { Args: { p_year: number }; Returns: number }
       saving_percent: { Args: { p_year: number }; Returns: number }
       send_feedback_invitations: {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,9 @@ export function RequestLifecyclePanel({ requestId, status, priority, expectedRes
         <>
           <Button onClick={() => { setError(undefined); setOpen(true); }} data-testid="create-training-from-request">
             <GraduationCap aria-hidden="true" /> {hasTraining ? "Создать ещё одно обучение" : "Создать обучение"}
+          </Button>
+          <Button asChild variant="outline" className="ml-2" data-testid="create-training-with-participants">
+            <Link href={`/trainings/new?request=${requestId}`}>Создать с выбором участников</Link>
           </Button>
           <Dialog open={open} onOpenChange={(o) => !o && !pending && setOpen(false)}>
             <DialogContent data-testid="from-request-dialog">

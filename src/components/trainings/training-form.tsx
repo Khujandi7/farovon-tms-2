@@ -11,18 +11,24 @@ import { Field, FormAlert } from "@/components/auth/form-parts";
 import { useToast } from "@/components/workflow/toast";
 import { createTraining } from "@/app/(app)/trainings/actions";
 import { TRAINING_FORMAT_OPTIONS, TRAINING_KIND_OPTIONS, UNPLANNED_REASON_OPTIONS } from "@/lib/labels";
+import { ParticipantPicker } from "@/components/trainings/participant-picker";
+import type { PickEmployee, PickUnit } from "@/lib/trainings/participant-filter";
 
 export type RequestOption = { id: string; label: string };
 export type TypeOption = { id: number; code: string; name: string };
 export type ProviderOpt = { id: string; name: string };
+/** Заявка-источник: её данные подставляются в форму (Заявка → Обучение без повторного ввода). */
+export type InitialRequest = { id: string; topic: string; goal: string | null; participants_planned: number | null; format: string | null; kind: string | null };
 
-export function TrainingForm({ requests, eventTypes = [], providers = [] }: { requests: RequestOption[]; eventTypes?: TypeOption[]; providers?: ProviderOpt[] }) {
+export function TrainingForm({ requests, eventTypes = [], providers = [], employees = [], units = [], initialRequest = null }: { requests: RequestOption[]; eventTypes?: TypeOption[]; providers?: ProviderOpt[]; employees?: PickEmployee[]; units?: PickUnit[]; initialRequest?: InitialRequest | null }) {
   const router = useRouter();
   const { notify } = useToast();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | undefined>>({});
-  const [requestId, setRequestId] = useState("");
+  const [requestId, setRequestId] = useState(initialRequest?.id ?? "");
+  const [participants, setParticipants] = useState<string[]>([]);
+  const [planned, setPlanned] = useState<string>(initialRequest?.participants_planned != null ? String(initialRequest.participants_planned) : "");
 
   function submit(form: HTMLFormElement) {
     const fd = new FormData(form);
@@ -45,6 +51,7 @@ export function TrainingForm({ requests, eventTypes = [], providers = [] }: { re
         provider_id: fd.get("provider_id") || null,
         organizer: fd.get("organizer"),
         status: fd.get("status") || null,
+        employee_ids: participants,
       });
       if (result.ok) {
         notify(true, result.message ?? "Тренинг создан.");
@@ -58,7 +65,7 @@ export function TrainingForm({ requests, eventTypes = [], providers = [] }: { re
 
   return (
     <form
-      className="grid max-w-3xl gap-5 rounded-xl border bg-card p-5 shadow-xs"
+      className="grid grid-cols-1 max-w-3xl gap-5 rounded-xl border bg-card p-5 shadow-xs"
       onSubmit={(e) => {
         e.preventDefault();
         submit(e.currentTarget);
@@ -67,8 +74,8 @@ export function TrainingForm({ requests, eventTypes = [], providers = [] }: { re
       noValidate
     >
       <FormAlert error={error} />
-      <Field id="title" label="Название *" error={fieldErrors.title} disabled={pending} maxLength={300} autoComplete="off" />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <Field id="title" label="Название *" error={fieldErrors.title} disabled={pending} maxLength={300} autoComplete="off" defaultValue={initialRequest?.topic ?? ""} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="grid gap-2">
           <Label htmlFor="event_type_id">Тип мероприятия</Label>
           <Select id="event_type_id" name="event_type_id" defaultValue={eventTypes.find((t) => t.code === "TRAINING")?.id ?? ""} disabled={pending} data-testid="event-type-select">
@@ -90,15 +97,15 @@ export function TrainingForm({ requests, eventTypes = [], providers = [] }: { re
         </div>
         <Field id="organizer" label="Организатор" disabled={pending} maxLength={300} autoComplete="off" hint="Если не совпадает с провайдером" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field id="start_date" label="Дата начала *" type="date" error={fieldErrors.start_date} disabled={pending} />
         <Field id="end_date" label="Дата окончания" type="date" error={fieldErrors.end_date} disabled={pending} hint="Пусто — один день" />
         <Field id="hours" label="Часы *" inputMode="decimal" error={fieldErrors.hours} disabled={pending} hint="Позже считается по заходам" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="grid gap-2">
           <Label htmlFor="format">Формат</Label>
-          <Select id="format" name="format" defaultValue="OFFLINE" disabled={pending}>
+          <Select id="format" name="format" defaultValue={initialRequest?.format ?? "OFFLINE"} disabled={pending}>
             {TRAINING_FORMAT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
@@ -106,13 +113,13 @@ export function TrainingForm({ requests, eventTypes = [], providers = [] }: { re
         </div>
         <div className="grid gap-2">
           <Label htmlFor="kind">Внутреннее / внешнее</Label>
-          <Select id="kind" name="kind" defaultValue="UNSPECIFIED" disabled={pending}>
+          <Select id="kind" name="kind" defaultValue={initialRequest?.kind ?? "UNSPECIFIED"} disabled={pending}>
             {TRAINING_KIND_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </Select>
         </div>
-        <Field id="participants_planned" label="Участников по плану" inputMode="numeric" error={fieldErrors.participants_planned} disabled={pending} />
+        <Field id="participants_planned" label="Участников по плану" inputMode="numeric" error={fieldErrors.participants_planned} disabled={pending} value={planned} onChange={(e) => setPlanned(e.target.value)} />
       </div>
       <div className="grid gap-2 sm:max-w-xs">
         <Label htmlFor="status">Начальный статус</Label>
@@ -122,7 +129,7 @@ export function TrainingForm({ requests, eventTypes = [], providers = [] }: { re
         </Select>
       </div>
       <Field id="location" label="Место проведения" disabled={pending} maxLength={300} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
           <Label htmlFor="request_id">Заявка</Label>
           <Select id="request_id" value={requestId} onChange={(e) => setRequestId(e.target.value)} disabled={pending}>
@@ -146,12 +153,16 @@ export function TrainingForm({ requests, eventTypes = [], providers = [] }: { re
       </div>
       <div className="grid gap-2">
         <Label htmlFor="description">Описание</Label>
-        <Textarea id="description" name="description" rows={3} disabled={pending} maxLength={2000} />
+        <Textarea id="description" name="description" rows={3} disabled={pending} maxLength={2000} defaultValue={initialRequest?.goal ?? ""} />
+      </div>
+      <div className="border-t pt-5">
+        <ParticipantPicker employees={employees} units={units} value={participants} onChange={setParticipants} disabled={pending} planned={planned.trim() ? Number(planned) : null} />
+        {fieldErrors.employee_ids && <p className="mt-2 text-xs text-destructive">{fieldErrors.employee_ids}</p>}
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>
           {pending && <Loader2 className="animate-spin" aria-hidden="true" />}
-          Создать тренинг
+          {participants.length ? `Создать тренинг и добавить ${participants.length}` : "Создать тренинг"}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.push("/trainings")} disabled={pending}>
           Отмена

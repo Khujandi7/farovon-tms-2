@@ -1,9 +1,13 @@
+import { generateKeyPairSync } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
 
 // E2E-тесты не требуют настоящего Supabase: приложение подключается к локальному mock-серверу
 // (e2e/mock-supabase.mjs), который имитирует Auth и PostgREST с тестовыми данными.
 // PW_CHROMIUM_PATH — путь к локально установленному Chromium, если версия браузера Playwright не скачана.
 const executablePath = process.env.PW_CHROMIUM_PATH || undefined;
+// Тестовый сервисный аккаунт Google: ключ создаётся на лету и нигде не хранится; настоящих учётных данных здесь нет.
+const testKey = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+const googleJson = JSON.stringify({ client_email: "tms-sync@e2e-test.iam.gserviceaccount.com", private_key: testKey });
 const port = Number(process.env.E2E_PORT ?? 3100);
 
 export default defineConfig({
@@ -41,6 +45,10 @@ export default defineConfig({
         // Только для mock-сервера: настоящего ключа здесь нет
         SUPABASE_SERVICE_ROLE_KEY: "e2e-service-role-key",
         NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${port}`,
+        // Google Sheets: сервисный аккаунт и «Google» — mock-сервер (см. e2e/mock-phase3b.mjs)
+        GOOGLE_SERVICE_ACCOUNT_JSON: googleJson,
+        GOOGLE_SHEETS_API_BASE: "http://127.0.0.1:54399/__google",
+        GOOGLE_OAUTH_TOKEN_URL: "http://127.0.0.1:54399/__google/token",
       },
     },
   ],

@@ -36,10 +36,15 @@ export async function createTraining(input: unknown): Promise<Result<{ id: strin
   if (!actor.ok) return actor;
   const parsed = createTrainingSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
-  const res = await callRpc("create_training", { p: parsed.data as unknown as Json });
+  const { employee_ids, ...p } = parsed.data;
+  // С участниками — одной транзакцией (create_training + add_participants в БД): либо всё, либо ничего.
+  const res = employee_ids.length
+    ? await callRpc("create_training_with_participants", { p: p as unknown as Json, p_employees: employee_ids })
+    : await callRpc("create_training", { p: p as unknown as Json });
   if (!res.ok) return res;
   refresh();
-  return { ok: true, message: "Тренинг создан.", data: { id: res.data as string } };
+  if (p.request_id) revalidatePath(`/trainings/requests/${p.request_id}`);
+  return { ok: true, message: employee_ids.length ? `Тренинг создан, участников: ${employee_ids.length}.` : "Тренинг создан.", data: { id: res.data as string } };
 }
 
 /** Inline-редактирование одного поля тренинга. Для status/часов/дат причина обязательна. */

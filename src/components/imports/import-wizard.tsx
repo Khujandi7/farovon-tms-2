@@ -2,7 +2,8 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, FileUp, Loader2, ClipboardPaste } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileUp, Loader2, ClipboardPaste, Sheet as SheetIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -12,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FormAlert } from "@/components/auth/form-parts";
 import { useToast } from "@/components/workflow/toast";
 import { stageImport } from "@/app/(app)/imports/actions";
+import { saveGoogleSource } from "@/app/(app)/imports/google-actions";
 import { ENTITY_DEFS, type ImportEntity } from "@/lib/imports/entities";
 import { autoMap, missingRequired, type ColumnMapping } from "@/lib/imports/mapping";
 import { buildStageRows } from "@/lib/imports/build";
@@ -22,9 +24,10 @@ import { MAX_ROWS } from "@/lib/imports/table";
 import { uploadForParsing } from "@/lib/imports/client";
 import type { ParsedTable } from "@/lib/imports/types";
 import { ImportStepper, type ImportStepId } from "./import-stepper";
+import { GoogleSheetPicker, type GoogleSheetMeta } from "./google-sheet-picker";
 
 export type TrainingChoice = { id: string; label: string };
-type Mode = "file" | "paste";
+type Mode = "file" | "paste" | "gsheet";
 
 /**
  * Мастер импорта: загрузка → предпросмотр → колонки → проверка → (качество данных + dry run на странице задачи) → применение.
@@ -44,6 +47,9 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
   const [busy, setBusy] = useState(false);
   const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [sheet, setSheet] = useState<GoogleSheetMeta | null>(null);
+  const [saveSource, setSaveSource] = useState(true);
+  const [sourceName, setSourceName] = useState("");
 
   const def = ENTITY_DEFS[entity];
   const missing = useMemo(() => missingRequired(mapping, entity), [mapping, entity]);
@@ -89,7 +95,14 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
     if (!table || !built) return;
     setError(undefined);
     startTransition(async () => {
+      let sourceId: string | null = null;
+      if (table.source === "GSHEET" && sheet && entity === "EMPLOYEES" && saveSource) {
+        const saved = await saveGoogleSource({ url: sheet.url, tab: sheet.tab, name: sourceName.trim() || `${sheet.title} / ${sheet.tab}`, headerRow: sheet.headerRow, mapping, headers: table.headers });
+        if (!saved.ok) return setError(saved.error);
+        sourceId = saved.data.id;
+      }
       const r = await stageImport({
+        sourceId,
         entity,
         source: table.source,
         fileName: table.fileName,
@@ -139,13 +152,25 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
           </div>
           <div role="tablist" aria-label="Источник данных" className="flex flex-wrap gap-2">
             <Button type="button" role="tab" aria-selected={mode === "file"} variant={mode === "file" ? "default" : "outline"} size="sm" onClick={() => setMode("file")} data-testid="import-mode-file"><FileUp aria-hidden="true" /> Файл</Button>
+            <Button type="button" role="tab" aria-selected={mode === "gsheet"} variant={mode === "gsheet" ? "default" : "outline"} size="sm" onClick={() => setMode("gsheet")} data-testid="import-mode-gsheet"><SheetIcon aria-hidden="true" /> Google Sheets</Button>
             <Button type="button" role="tab" aria-selected={mode === "paste"} variant={mode === "paste" ? "default" : "outline"} size="sm" onClick={() => setMode("paste")} data-testid="import-mode-paste"><ClipboardPaste aria-hidden="true" /> Вставить таблицу</Button>
           </div>
-          {mode === "file" ? (
+          {mode === "gsheet" ? (
+            <GoogleSheetPicker
+              entity={entity}
+              onLoaded={(t, meta) => {
+                setError(undefined);
+                if (entity === "PARTICIPANTS" && !trainingId) return setError("Выберите мероприятие, в которое импортируются участники.");
+                setSheet(meta);
+                setSourceName(`${meta.title} / ${meta.tab}`);
+                accept(t);
+              }}
+            />
+          ) : mode === "file" ? (
             <div className="grid gap-2">
               <Label htmlFor="imp-file">Файл Excel или CSV (до 5 МБ, до 5000 строк)</Label>
               <input id="imp-file" ref={fileRef} type="file" accept=".xlsx,.csv,.tsv,.txt" data-testid="import-file" className="block w-full rounded-md border border-input bg-transparent p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium" />
-              <p className="text-xs text-muted-foreground">Формулы не вычисляются: берутся сохранённые значения. Для Google Sheets скачайте таблицу как .xlsx или .csv либо скопируйте ячейки и используйте «Вставить таблицу». Загрузка по ссылке появится позже.</p>
+              <p className="text-xs text-muted-foreground">Формулы не вычисляются: берутся сохранённые значения. Для Google-таблицы выберите источник «Google Sheets».</p>
             </div>
           ) : (
             <div className="grid gap-2">
@@ -153,11 +178,11 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
               <Textarea id="imp-paste" rows={8} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder={"ФИО\tТабельный номер\nИванов Иван\t001"} data-testid="import-paste" className="font-mono text-xs" />
             </div>
           )}
-          <div className="flex justify-end">
+          {mode !== "gsheet" && <div className="flex justify-end">
             <Button type="button" onClick={onContinueUpload} disabled={busy} data-testid="import-next-upload">
               {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : null} Далее <ArrowRight aria-hidden="true" />
             </Button>
-          </div>
+          </div>}
         </section>
       )}
 
@@ -165,7 +190,7 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
         <section className="space-y-4 rounded-xl border bg-card p-4 shadow-xs sm:p-5" aria-labelledby="wiz-preview">
           <h2 id="wiz-preview" className="font-medium">Предпросмотр</h2>
           <p className="text-sm text-muted-foreground" data-testid="import-preview-stats">
-            Источник: {table.fileName}. Колонок: {table.headers.length}, строк с данными: {table.rows.length}. {table.truncatedColumns && "Колонки сверх 60 отброшены. "}Показаны первые 10 строк.
+            Источник: {table.fileName}. Колонок: {table.headers.length}, строк с данными: {table.rows.length}. {table.truncatedColumns && "Колонки сверх 60 отброшены. "}{table.source === "GSHEET" && sheet ? `Строка заголовков: ${sheet.headerRow}. ` : ""}Показаны первые 10 строк.
           </p>
           <div className="rounded-lg border">
             <Table>
@@ -235,6 +260,20 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
                 ))}
                 {validation.issues.length > 50 && <li className="text-muted-foreground">…и ещё {validation.issues.length - 50}</li>}
               </ul>
+            </div>
+          )}
+          {table.source === "GSHEET" && sheet && entity === "EMPLOYEES" && (
+            <div className="grid gap-2 rounded-lg border p-3" data-testid="gsheet-save-source">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={saveSource} onChange={(e) => setSaveSource(e.target.checked)} className="size-4 accent-brand" data-testid="gsheet-save-toggle" />
+                Сохранить как источник для синхронизации («Синхронизировать сейчас» без повторной настройки)
+              </label>
+              {saveSource && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="gsheet-source-name">Название источника</Label>
+                  <Input id="gsheet-source-name" value={sourceName} onChange={(e) => setSourceName(e.target.value)} maxLength={120} data-testid="gsheet-source-name" />
+                </div>
+              )}
             </div>
           )}
           <p className="text-sm text-muted-foreground">Дальше система сопоставит строки со справочниками и покажет, что будет создано, обновлено и что требует решения. Пока вы не нажмёте «Применить», данные не меняются.</p>
