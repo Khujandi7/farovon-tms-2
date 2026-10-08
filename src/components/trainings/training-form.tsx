@@ -65,7 +65,7 @@ export function TrainingForm({ requests, eventTypes = [], providers = [], employ
 
   return (
     <form
-      className="grid max-w-3xl gap-5 rounded-xl border bg-card p-5 shadow-xs"
+      className="grid grid-cols-1 max-w-3xl gap-5 rounded-xl border bg-card p-5 shadow-xs"
       onSubmit={(e) => {
         e.preventDefault();
         submit(e.currentTarget);
@@ -75,7 +75,7 @@ export function TrainingForm({ requests, eventTypes = [], providers = [], employ
     >
       <FormAlert error={error} />
       <Field id="title" label="Название *" error={fieldErrors.title} disabled={pending} maxLength={300} autoComplete="off" defaultValue={initialRequest?.topic ?? ""} />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="grid gap-2">
           <Label htmlFor="event_type_id">Тип мероприятия</Label>
           <Select id="event_type_id" name="event_type_id" defaultValue={eventTypes.find((t) => t.code === "TRAINING")?.id ?? ""} disabled={pending} data-testid="event-type-select">
@@ -97,12 +97,12 @@ export function TrainingForm({ requests, eventTypes = [], providers = [], employ
         </div>
         <Field id="organizer" label="Организатор" disabled={pending} maxLength={300} autoComplete="off" hint="Если не совпадает с провайдером" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field id="start_date" label="Дата начала *" type="date" error={fieldErrors.start_date} disabled={pending} />
         <Field id="end_date" label="Дата окончания" type="date" error={fieldErrors.end_date} disabled={pending} hint="Пусто — один день" />
         <Field id="hours" label="Часы *" inputMode="decimal" error={fieldErrors.hours} disabled={pending} hint="Позже считается по заходам" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="grid gap-2">
           <Label htmlFor="format">Формат</Label>
           <Select id="format" name="format" defaultValue={initialRequest?.format ?? "OFFLINE"} disabled={pending}>
@@ -129,7 +129,7 @@ export function TrainingForm({ requests, eventTypes = [], providers = [], employ
         </Select>
       </div>
       <Field id="location" label="Место проведения" disabled={pending} maxLength={300} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
           <Label htmlFor="request_id">Заявка</Label>
           <Select id="request_id" value={requestId} onChange={(e) => setRequestId(e.target.value)} disabled={pending}>

@@ -29,7 +29,7 @@ export function ParticipantPicker({ employees, units, value, onChange, disabled,
   const filtered = !!(q.trim() || dept || unit);
 
   return (
-    <section className="space-y-4" aria-labelledby="participants-title" data-testid="participant-picker">
+    <section className="min-w-0 space-y-4" aria-labelledby="participants-title" data-testid="participant-picker">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 id="participants-title" className="font-medium">Участники</h2>
@@ -38,7 +38,7 @@ export function ParticipantPicker({ employees, units, value, onChange, disabled,
         <Badge variant={value.length ? "brand" : "outline"} data-testid="picker-count">Выбрано: {value.length} {plural(value.length)}</Badge>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_12rem_12rem]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_12rem_12rem]">
         <div className="grid gap-1.5">
           <Label htmlFor="picker-q">Поиск</Label>
           <div className="relative">
