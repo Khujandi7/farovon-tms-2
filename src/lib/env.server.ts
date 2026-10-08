@@ -22,3 +22,28 @@ export function getSiteUrl(): string {
 export function getPublicRequestHashSecret(): string {
   return resolveHashSecret({ PUBLIC_REQUEST_HASH_SECRET: process.env.PUBLIC_REQUEST_HASH_SECRET, DERIVE_FROM: process.env.SUPABASE_SERVICE_ROLE_KEY });
 }
+
+/**
+ * Сервисный аккаунт Google для чтения корпоративных таблиц (Phase 3B). Только сервер.
+ * GOOGLE_SERVICE_ACCOUNT_JSON — JSON-ключ сервисного аккаунта целиком или в base64. Таблицу открывают этому аккаунту на «Просмотр».
+ * Адреса API переопределяются только для тестов (mock); в Production не задаются.
+ */
+export type GoogleServiceAccount = { clientEmail: string; privateKey: string };
+export function getGoogleServiceAccount(): GoogleServiceAccount | null {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim();
+  if (!raw) return null;
+  try {
+    const text = raw.startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8");
+    const j = JSON.parse(text) as { client_email?: unknown; private_key?: unknown };
+    if (typeof j.client_email !== "string" || typeof j.private_key !== "string" || !j.private_key.includes("PRIVATE KEY")) return null;
+    return { clientEmail: j.client_email, privateKey: j.private_key.replace(/\\n/g, "\n") };
+  } catch {
+    return null;
+  }
+}
+export function getGoogleApiUrls(): { sheets: string; token: string } {
+  return {
+    sheets: (process.env.GOOGLE_SHEETS_API_BASE?.trim() || "https://sheets.googleapis.com").replace(/\/+$/, ""),
+    token: process.env.GOOGLE_OAUTH_TOKEN_URL?.trim() || "https://oauth2.googleapis.com/token",
+  };
+}

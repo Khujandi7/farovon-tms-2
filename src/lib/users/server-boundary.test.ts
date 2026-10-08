@@ -15,11 +15,11 @@ const files = walk(SRC).filter((f) => !/\.test\.tsx?$/.test(f));
 const read = (f: string) => fs.readFileSync(f, "utf8");
 const rel = (f: string) => path.relative(SRC, f);
 
-const SERVER_ONLY_MODULES = ["@/lib/supabase/admin", "@/lib/env.server", "@/lib/users/service", "@/lib/users/guard"];
+const SERVER_ONLY_MODULES = ["@/lib/supabase/admin", "@/lib/env.server", "@/lib/users/service", "@/lib/users/guard", "@/lib/google/sheets.server"];
 
 describe("service_role не попадает в клиентский бандл", () => {
   it("модули с секретами помечены server-only", () => {
-    for (const f of ["lib/supabase/admin.ts", "lib/env.server.ts", "lib/users/service.ts", "lib/users/guard.ts"]) {
+    for (const f of ["lib/supabase/admin.ts", "lib/env.server.ts", "lib/users/service.ts", "lib/users/guard.ts", "lib/google/sheets.server.ts"]) {
       expect(read(path.join(SRC, f)), f).toMatch(/^import "server-only";/m);
     }
   });
@@ -49,6 +49,14 @@ describe("service_role не попадает в клиентский бандл"
       const code = read(f);
       if (!SERVER_ONLY_MODULES.some((m) => code.includes(`"${m}"`))) continue;
       expect(/^\s*["']use client["']/.test(code), `${rel(f)} — клиентский файл`).toBe(false);
+    }
+  });
+
+  it("ключ Google (Phase 3B): имя переменной только в env.server.ts, клиентский код его не знает", () => {
+    const users = files.filter((f) => /GOOGLE_SERVICE_ACCOUNT_JSON/.test(read(f))).map(rel).sort();
+    expect(users).toEqual(["lib/env.server.ts", "lib/google/sheets.server.ts"]);
+    for (const f of files.filter((x) => /^\s*["']use client["']/.test(read(x)))) {
+      expect(read(f), rel(f)).not.toMatch(/private_key|GOOGLE_SERVICE_ACCOUNT|sheets\.googleapis|oauth2\.googleapis/);
     }
   });
 });

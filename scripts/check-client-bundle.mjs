@@ -10,7 +10,7 @@ if (!fs.existsSync(root)) {
 }
 // «sb_secret_» как голый префикс встречается в самой supabase-js и в защитной проверке env.ts (startsWith("sb_secret_")) — это не утечка.
 // Утечка — префикс, за которым идёт тело ключа.
-const needles = ["SUPABASE_SERVICE_ROLE_KEY", "service_role", /sb_secret_[A-Za-z0-9_-]{16,}/];
+const needles = ["SUPABASE_SERVICE_ROLE_KEY", "service_role", /sb_secret_[A-Za-z0-9_-]{16,}/, "GOOGLE_SERVICE_ACCOUNT_JSON", "BEGIN PRIVATE KEY", "oauth2.googleapis.com"];
 const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (secret && secret.length >= 8) needles.push(secret);
 else console.warn("ВНИМАНИЕ: SUPABASE_SERVICE_ROLE_KEY не задан при сборке — значение ключа проверить нечем (проверяются только имена).");

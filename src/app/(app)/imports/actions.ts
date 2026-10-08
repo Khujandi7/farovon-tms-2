@@ -29,6 +29,8 @@ const stageSchema = z.object({
   fileHash: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
   mapping: z.record(z.string().max(40), z.number().int().min(0).max(200).nullable()),
   trainingId: uuid.nullish(),
+  /** Сохранённый источник Google Sheets (Phase 3B): связывает dry run с источником для итогов синхронизации. */
+  sourceId: uuid.nullish(),
   rows: z.array(rowSchema).min(1, { message: "В файле нет строк" }).max(5000, { message: "Не больше 5000 строк за раз" }),
 });
 
@@ -44,9 +46,10 @@ export async function stageImport(input: unknown): Promise<Result<{ jobId: strin
   const v = p.data;
   if (!canImportEntity(actor.role, v.entity)) return fail(WF_ERR.forbidden);
   if (v.entity === "PARTICIPANTS" && !v.trainingId) return fail("Выберите мероприятие, в которое импортируются участники.");
-  if (v.source === "GSHEET") return fail("Импорт по ссылке Google Sheets будет доступен позже. Вставьте таблицу или загрузите CSV.");
+  if (v.sourceId && v.entity !== "EMPLOYEES") return fail(WF_ERR.invalid);
   const options: Record<string, string> = {};
   if (v.entity === "PARTICIPANTS" && v.trainingId) options.training_id = v.trainingId;
+  if (v.sourceId) options.source_id = v.sourceId;
   const res = await callRpc("import_stage", {
     p_entity: v.entity,
     p_source: v.source,
@@ -57,6 +60,7 @@ export async function stageImport(input: unknown): Promise<Result<{ jobId: strin
     p_rows: v.rows as unknown as Json,
   });
   if (!res.ok) return res;
+  if (v.sourceId) await callRpc("record_source_sync", { p_source: v.sourceId, p_job: res.data });
   refresh(res.data);
   return { ok: true, message: "Файл проанализирован. Проверьте результат перед применением.", data: { jobId: res.data } };
 }
@@ -90,11 +94,27 @@ export async function commitImport(input: { jobId: string; reason?: string | nul
   const res = await callRpc("import_commit", { p_job: id.data, p_reason: r.data });
   if (!res.ok) return res;
   const out = (res.data ?? {}) as { inserted?: number; updated?: number; skipped?: number };
+  await finishSourceSync(id.data);
   revalidatePath("/employees");
   revalidatePath("/trainings");
   refresh(id.data);
   const inserted = Number(out.inserted ?? 0), updated = Number(out.updated ?? 0), skipped = Number(out.skipped ?? 0);
   return { ok: true, message: `Импорт применён: добавлено ${inserted}, обновлено ${updated}, пропущено ${skipped}.`, data: { inserted, updated, skipped } };
+}
+
+/** Если импорт относится к сохранённому источнику Google Sheets — записать итог и сверить «кого нет в таблице». */
+async function finishSourceSync(jobId: string) {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.from("import_jobs").select("options").eq("id", jobId).maybeSingle();
+    const sourceId = (data?.options as { source_id?: string } | null)?.source_id;
+    if (sourceId && uuid.safeParse(sourceId).success) {
+      await callRpc("record_source_sync", { p_source: sourceId, p_job: jobId });
+      revalidatePath("/employees/import");
+    }
+  } catch {
+    // итог источника — служебная информация; применение импорта уже выполнено
+  }
 }
 
 export async function cancelImport(input: { jobId: string; reason?: string | null }): Promise<Result> {
@@ -106,6 +126,7 @@ export async function cancelImport(input: { jobId: string; reason?: string | nul
   if (!r.success) return fail(r.error.issues[0]?.message ?? WF_ERR.reason);
   const res = await callRpc("import_cancel", { p_job: id.data, p_reason: r.data });
   if (!res.ok) return res;
+  await finishSourceSync(id.data);
   refresh(id.data);
   return { ok: true, message: "Импорт отменён. Данные не изменены.", data: undefined };
 }

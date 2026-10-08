@@ -31,7 +31,7 @@ const person: ImportField[] = [
   },
   {
     key: "employee_code", label: "Табельный номер", anyOf: "person", description: "Табельный номер или код сотрудника; сопоставление по нему точнее, чем по ФИО.", example: "00123",
-    synonyms: ["табельный номер", "табельный", "таб номер", "таб", "код сотрудника", "код", "табельный №", "employee code", "employee id", "code", "personnel number", "tab no"],
+    synonyms: ["табельный номер", "табельный", "таб номер", "таб №", "таб", "код сотрудника", "код", "табельный №", "employee code", "employee id", "code", "personnel number", "tab no"],
   },
 ];
 

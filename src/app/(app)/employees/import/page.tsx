@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/common/page-header";
 import { ForbiddenState } from "@/components/common/states";
 import { ImportWizard } from "@/components/imports/import-wizard";
+import { GoogleSourcesPanel } from "@/components/imports/google-sources-panel";
 import { getSectionAccess } from "@/lib/auth/session";
 import { can } from "@/lib/workflows/roles";
 
@@ -14,8 +15,15 @@ export default async function EmployeesImportPage() {
   const ok = access.allowed && can(access.session.role, "importEmployees");
   return (
     <div className="space-y-6">
-      <PageHeader title="Импорт сотрудников" description="Загрузка справочника из Excel или CSV: новые сотрудники создаются, существующие обновляются." breadcrumbs={crumbs} backHref="/employees" backLabel="К сотрудникам" />
-      {ok ? <ImportWizard entities={["EMPLOYEES"]} initialEntity="EMPLOYEES" /> : <ForbiddenState className="bg-card" />}
+      <PageHeader title="Импорт сотрудников" description="Загрузка справочника из Excel, CSV или Google Sheets: новые сотрудники создаются, существующие обновляются, дубликаты не создаются." breadcrumbs={crumbs} backHref="/employees" backLabel="К сотрудникам" />
+      {ok ? (
+        <>
+          <ImportWizard entities={["EMPLOYEES"]} initialEntity="EMPLOYEES" />
+          <GoogleSourcesPanel canSync />
+        </>
+      ) : (
+        <ForbiddenState className="bg-card" />
+      )}
     </div>
   );
 }

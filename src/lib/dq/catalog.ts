@@ -198,6 +198,12 @@ export const DQ_RULES: Record<string, Rule> = {
     actions: (i) => [{ kind: "open", label: "Открыть импорт", href: importJob(i) }, { kind: "match", label: "Разобрать строку", href: importJob(i) }, review],
   },
 
+  // ---- Phase 3B: источники Google Sheets ----
+  SOURCE_EMPLOYEE_MISSING: {
+    title: "Сотрудника нет в источнике",
+    description: "Сотрудник был в синхронизируемой Google-таблице, а при последней синхронизации его там нет. В TMS он не удалён.",
+    actions: (i) => list(to("open", "Открыть сотрудника", i.entity_id ? `/employees/${i.entity_id}` : undefined), to("fix", "Источники", "/employees/import"), review, confirm),
+  },
   // ---- Phase 3A.2: сквозные правила жизненного цикла ----
   TRAINING_NO_TRAINER: {
     title: "У обучения нет тренера",
