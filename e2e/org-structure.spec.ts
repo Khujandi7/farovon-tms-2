@@ -7,6 +7,7 @@ const MOCK = "http://127.0.0.1:54399";
 const JOB = "dddddddd-dddd-4ddd-8ddd-000000000001";
 const DONE_JOB = "dddddddd-dddd-4ddd-8ddd-000000000002";
 const FINISH_JOB = "dddddddd-dddd-4ddd-8ddd-000000000003";
+const MAP_JOB = "dddddddd-dddd-4ddd-8ddd-000000000005";
 
 test.describe("справочник подразделений", () => {
   test("раздел находится по якорю #units, поиск фильтрует список", async ({ page, context, baseURL }) => {
@@ -161,5 +162,88 @@ test.describe("дозавершение применённого импорта 
     await signInAs(context, "viewer@test.local", baseURL!);
     await page.goto(`/imports/${FINISH_JOB}`);
     await expect(page.getByTestId("import-finish-panel")).toHaveCount(0);
+  });
+});
+
+// M27: массовое сопоставление оргструктуры — по уникальным значениям, а не по строкам: выбор → предпросмотр → подтверждение → разбор → применение.
+// Mock имитирует RPC; настоящую логику (контекст, дубли, идемпотентность, права) проверяет supabase/tests/hotfix4_orgmap_tests.sql.
+test.describe("массовое сопоставление оргструктуры (M27)", () => {
+  test("значения → предпросмотр без записи → подтверждение с причиной → перепроверка → применение готовых", async ({ page, context, baseURL }) => {
+    const sid = await signInAs(context, "hr@test.local", baseURL!);
+    const st = async () => (await (await page.request.get(`${MOCK}/__mock/phase3c?sid=${sid}`)).json()).map;
+    await page.goto(`/imports/${MAP_JOB}`);
+    await expect(page.getByTestId("orgmap-section")).toBeVisible();
+    // 4 уникальных значения вместо 10 строк
+    await expect(page.getByTestId("orgmap-groups")).toHaveText("4");
+    await expect(page.getByTestId("orgmap-rows")).toHaveText("10");
+    await expect(page.getByTestId("orgmap-causes")).toContainText("Есть у другого департамента");
+    await expect(page.getByTestId("orgmap-causes")).toContainText("Сначала сопоставьте департамент");
+    await expect(page.getByTestId("orgmap-list").locator(":scope > li")).toHaveCount(4);
+    await expect(page.getByTestId("orgmap-row-0")).toContainText("«Кадры»");
+    await expect(page.getByTestId("orgmap-row-0")).toContainText("Департамент рисков › Отдел кадров"); // кандидат с полным путём
+    // отдел чужого департамента выбрать нельзя (disabled), по значению «Цех Х» действий нет (сначала департамент)
+    await page.getByTestId("orgmap-action-0").selectOption("MAP");
+    await expect(page.getByTestId("orgmap-target-0").locator("option", { hasText: "Департамент рисков › Отдел кадров" })).toBeDisabled();
+    await page.getByTestId("orgmap-target-0").selectOption({ label: "Финансовый департамент › Отдел кадров" });
+    await expect(page.getByTestId("orgmap-row-3")).toContainText("Сначала сопоставьте департамент");
+    await expect(page.getByTestId("orgmap-action-3")).toHaveCount(0);
+    // «Охрана труда»: создать под своим департаментом — только с подтверждением, что это другое подразделение
+    await page.getByTestId("orgmap-action-1").selectOption("CREATE");
+    await expect(page.getByTestId("orgmap-homonym-1")).toBeVisible();
+    // «Птицефабрика №2» — нигде нет: создать
+    await page.getByTestId("orgmap-bulk-create").click();
+    await expect(page.getByTestId("orgmap-action-2")).toHaveValue("CREATE");
+    await page.getByTestId("orgmap-preview-btn").click();
+    // предпросмотр: «Охрана труда» без подтверждения омонима отклонена; ничего не сохранено
+    await expect(page.getByTestId("orgmap-preview-summary")).toContainText("допустимо: 2, отклонено: 1");
+    await expect(page.getByTestId("orgmap-preview-error")).toContainText("подтвердите, что это другое подразделение");
+    let m = await st();
+    expect(m.previewCalls).toBeGreaterThan(0);
+    expect(m.saveCalls).toBe(0);
+    await page.getByTestId("orgmap-homonym-1").check();
+    await expect(page.getByTestId("orgmap-preview")).toHaveCount(0); // изменение выбора сбрасывает предпросмотр
+    await page.getByTestId("orgmap-preview-btn").click();
+    await expect(page.getByTestId("orgmap-preview-summary")).toContainText("допустимо: 3, отклонено: 0");
+    await expect(page.getByTestId("orgmap-preview-summary")).toContainText("Затронуто строк: 9");
+    await expect(page.getByTestId("orgmap-preview-summary")).toContainText("Останется нерешённых значений: 1");
+    m = await st();
+    expect(m.saveCalls).toBe(0);
+    // сохранение — только после подтверждения с причиной
+    await page.getByTestId("orgmap-save-btn").click();
+    const dlg = page.getByTestId("orgmap-dialog");
+    await dlg.getByRole("button", { name: "Сохранить" }).click(); // без причины не уходит
+    m = await st();
+    expect(m.saveCalls).toBe(0);
+    await dlg.locator("textarea").fill("Сверка с кадровой службой");
+    await dlg.getByRole("button", { name: "Сохранить" }).click();
+    await expect(page.getByTestId("orgmap-note")).toContainText("Сохранено значений: 3", { timeout: 20_000 });
+    await expect(page.getByTestId("orgmap-note")).toContainText("затронуто строк: 9");
+    m = await st();
+    expect(m.saveCalls).toBe(1);
+    expect(m.reasons[0]).toBe("Сверка с кадровой службой");
+    expect(m.reanalyzeCalls).toBeGreaterThan(0); // перепроверка всех строк выполнена автоматически, без «Перепроверить» на каждой строке
+    expect(m.saved.map((x: { action: string }) => x.action).sort()).toEqual(["CREATE", "CREATE", "MAP"]);
+    // остались: готово к применению 9 строк, значение «Цех Х» ждёт департамента
+    await expect(page.getByTestId("import-finish-ready")).toHaveText("9");
+    await expect(page.getByTestId("orgmap-groups")).toHaveText("1");
+    await expect(page.getByTestId("orgmap-rows")).toHaveText("1");
+    // применение готовых — отдельное подтверждение с причиной, пакетами
+    await page.getByTestId("import-finish-apply").click();
+    const adlg = page.getByTestId("import-finish-dialog");
+    await adlg.locator("textarea").fill("Дозавершение после сопоставления оргструктуры");
+    await adlg.getByRole("button", { name: "Применить" }).click();
+    await expect(page.getByTestId("import-finish-summary")).toContainText("создано 8, обновлено 1", { timeout: 20_000 });
+    await expect(page.getByTestId("import-finish-summary")).toContainText("Дубли внутри файла (не применяются): 2");
+    await expect(page.getByTestId("import-finish-ready")).toHaveText("0");
+    m = await st();
+    expect(m.fin.created).toBe(8);
+    expect(m.fin.updated).toBe(1);
+    expect(m.fin.reasons.every((r: string) => r.includes("Дозавершение"))).toBe(true);
+  });
+
+  test("VIEWER не видит сопоставление", async ({ page, context, baseURL }) => {
+    await signInAs(context, "viewer@test.local", baseURL!);
+    await page.goto(`/imports/${MAP_JOB}`);
+    await expect(page.getByTestId("orgmap-section")).toHaveCount(0);
   });
 });

@@ -9,11 +9,13 @@ import { Button } from "@/components/ui/button";
 import { FormAlert } from "@/components/auth/form-parts";
 import { ReasonDialog } from "@/components/workflow/reason-dialog";
 import { useToast } from "@/components/workflow/toast";
-import { applyResolvedRows, previewResolvedRows, reanalyzeImportJob, type ResolvedPreview } from "@/app/(app)/imports/actions";
+import { applyResolvedRows, previewResolvedRows, type ResolvedPreview } from "@/app/(app)/imports/actions";
+import { scanOrgMap, type OrgScan } from "@/app/(app)/imports/orgmap-actions";
+import { ImportOrgMapSection } from "@/components/imports/import-orgmap-section";
+import { runReanalyzeAll } from "@/lib/imports/orgmap-run";
 import { COMMIT_BATCH_MAX, COMMIT_BATCH_MIN, nextBatchSize, safeAction } from "@/lib/imports/batch";
 
 const MAX_STEPS = 400; // предохранитель: 5000 строк / минимум 20 в пакете = 250 вызовов
-const STEP_ROWS = 100; // разбор подразделений: ≈5 мс на строку
 const APPLY_START_ROWS = 40; // применение: создание сотрудника ≈20–40 мс на строку (next_employee_code); размер пакета адаптивный, цель ≈2,5 с
 type Totals = { created: number; updated: number; unchanged: number; needsReview: number; errors: number; processed: number };
 const ZERO: Totals = { created: 0, updated: 0, unchanged: 0, needsReview: 0, errors: 0, processed: 0 };
@@ -24,12 +26,13 @@ const ZERO: Totals = { created: 0, updated: 0, unchanged: 0, needsReview: 0, err
  * 2) предпросмотр — сколько строк готово, сколько нерешено, сколько с ошибкой;
  * 3) явное подтверждение с причиной → пакетное применение с прогрессом. Каждый шаг идемпотентен, после сбоя или перезагрузки можно продолжить.
  */
-export function ImportFinishPanel({ jobId, initial }: { jobId: string; initial: ResolvedPreview | null }) {
+export function ImportFinishPanel({ jobId, initial, initialScan = null }: { jobId: string; initial: ResolvedPreview | null; initialScan?: OrgScan | null }) {
   const router = useRouter();
   const { notify } = useToast();
   const [pv, setPv] = useState<ResolvedPreview | null>(initial);
   const [error, setError] = useState<string | undefined>(initial ? undefined : "Не удалось загрузить предпросмотр. Обновите страницу.");
-  const [busy, setBusy] = useState<"reanalyze" | "apply" | null>(null);
+  const [busy, setBusy] = useState<"map" | "reanalyze" | "apply" | null>(null);
+  const [scan, setScan] = useState<OrgScan | null>(initialScan);
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [summary, setSummary] = useState<Totals | null>(null);
   const [reanalyzeNote, setReanalyzeNote] = useState<string | undefined>();
@@ -39,23 +42,19 @@ export function ImportFinishPanel({ jobId, initial }: { jobId: string; initial: 
     const r = await safeAction(() => previewResolvedRows({ jobId }));
     if (r.ok) setPv(r.data);
     else setError(r.error);
+    const sc = await safeAction(() => scanOrgMap({ jobId, offset: 0, limit: 300 }));
+    if (sc.ok) setScan(sc.data);
   }, [jobId]);
 
   async function reanalyze() {
     if (!pv) return;
     setBusy("reanalyze"); setError(undefined); setReanalyzeNote(undefined);
-    const total = pv.unresolvedUnits;
-    let after = 0, done = 0, resolved = 0, unresolved = 0, errors = 0, firstError: string | null = null;
+    const total = Math.max(scan?.rowsWithUnitIssue ?? 0, pv.unresolvedUnits);
     try {
-      for (let i = 0; i < MAX_STEPS; i++) {
-        const r = await safeAction(() => reanalyzeImportJob({ jobId, after, limit: STEP_ROWS }));
-        if (!r.ok) { setError(r.error); return; }
-        after = r.data.nextAfter; done += r.data.processed; resolved += r.data.resolved; unresolved += r.data.unresolved; errors += r.data.errors;
-        firstError = firstError ?? r.data.firstError;
-        setProgress({ done, total, label: "Повторный разбор подразделений" });
-        if (r.data.done) break;
-      }
-      setReanalyzeNote(`Проверено строк: ${done}. Подразделение найдено: ${resolved}. Всё ещё не найдено: ${unresolved}.${errors ? ` Ошибок: ${errors}${firstError ? ` (${firstError})` : ""}.` : ""}`);
+      const r = await runReanalyzeAll(jobId, total, (done, t) => setProgress({ done, total: Math.max(t, done), label: "Повторный разбор подразделений" }));
+      const t = r.totals;
+      setReanalyzeNote(`Проверено строк: ${t.processed}. Подразделение найдено: ${t.resolved}. Всё ещё не найдено: ${t.unresolved}.${t.errors ? ` Ошибок: ${t.errors}${t.firstError ? ` (${t.firstError})` : ""}.` : ""}`);
+      if (!r.ok) { setError(r.error); return; }
       notify(true, "Повторный разбор завершён.");
     } finally {
       setBusy(null); setProgress(null);
@@ -95,7 +94,7 @@ export function ImportFinishPanel({ jobId, initial }: { jobId: string; initial: 
   }
 
   const ready = pv?.ready ?? 0;
-  const nothingToDo = pv && pv.ready === 0 && pv.unresolvedUnits === 0 && pv.needsDecision === 0 && pv.errors === 0;
+  const nothingToDo = pv && pv.ready === 0 && pv.unresolvedUnits === 0 && pv.needsDecision === 0 && pv.errors === 0 && (scan?.rowsWithUnitIssue ?? 0) === 0;
 
   return (
     <section aria-label="Завершить применение импорта" className="space-y-3 rounded-xl border border-warning/40 bg-card p-4 shadow-xs" data-testid="import-finish-panel">
@@ -106,6 +105,8 @@ export function ImportFinishPanel({ jobId, initial }: { jobId: string; initial: 
           затем перепроверьте строки и примените готовые. Применённые ранее строки не затрагиваются; сотрудники создаются только после вашего подтверждения.
         </p>
       </div>
+
+      {pv && <ImportOrgMapSection jobId={jobId} scan={scan} setScan={setScan} onChanged={load} busy={busy} setBusy={setBusy} setProgress={setProgress} />}
 
       {!pv && !error && <p className="text-sm text-muted-foreground"><Loader2 className="mr-1 inline size-4 animate-spin" aria-hidden="true" /> Загрузка предпросмотра…</p>}
 
@@ -164,14 +165,15 @@ export function ImportFinishPanel({ jobId, initial }: { jobId: string; initial: 
       {summary && (
         <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm" data-testid="import-finish-summary">
           Итог: создано {summary.created}, обновлено {summary.updated}, без изменений {summary.unchanged}, требует решения {summary.needsReview}, ошибок {summary.errors}.
+          {pv ? ` Осталось нерешённых: ${pv.unresolvedUnits + pv.needsDecision}. Пропущено вашим решением: ${pv.skippedByDecision}.` : ""}{scan ? ` Дубли внутри файла (не применяются): ${scan.duplicates}.` : ""}
         </p>
       )}
       <FormAlert error={error} />
       {nothingToDo && <p className="text-sm text-muted-foreground" data-testid="import-finish-done">Все строки обработаны: ожидающих нет.</p>}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Button type="button" variant="outline" onClick={reanalyze} disabled={busy !== null || !pv || pv.unresolvedUnits === 0} data-testid="import-finish-reanalyze">
-          {busy === "reanalyze" ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />} Перепроверить подразделения{pv && pv.unresolvedUnits > 0 ? ` (${pv.unresolvedUnits})` : ""}
+        <Button type="button" variant="outline" onClick={reanalyze} disabled={busy !== null || !pv || Math.max(pv.unresolvedUnits, scan?.rowsWithUnitIssue ?? 0) === 0} data-testid="import-finish-reanalyze">
+          {busy === "reanalyze" ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />} Перепроверить подразделения{pv && Math.max(pv.unresolvedUnits, scan?.rowsWithUnitIssue ?? 0) > 0 ? ` (${Math.max(pv.unresolvedUnits, scan?.rowsWithUnitIssue ?? 0)})` : ""}
         </Button>
         <Button type="button" onClick={() => setDlg(true)} disabled={busy !== null || ready === 0} data-testid="import-finish-apply">
           {busy === "apply" ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />} Применить готовые{ready > 0 ? ` (${ready})` : ""}
