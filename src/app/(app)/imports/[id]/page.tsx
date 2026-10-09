@@ -81,7 +81,10 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
     dept_id: r.data && typeof r.data === "object" && !Array.isArray(r.data) && (r.data as Record<string, unknown>).department_id ? Number((r.data as Record<string, unknown>).department_id) : null,
   }));
   // справочник подразделений нужен только если на странице есть строки «Подразделение не найдено»
-  const needUnits = staged && views.some((v) => v.status === "NEEDS_REVIEW" && v.review_code === "UNIT_UNKNOWN");
+  // Разбор подразделений доступен и после применения (COMMITTED): строки с UNIT_UNKNOWN были пропущены, а справочник мог быть исправлен позже.
+  const committed = job.status === "COMMITTED";
+  const canResolveUnits = (staged || committed) && canWork;
+  const needUnits = canResolveUnits && views.some((v) => v.status === "NEEDS_REVIEW" && v.review_code === "UNIT_UNKNOWN");
   const unitsQ = needUnits ? await supabase.from("org_units").select("id, name, parent_id, level").eq("is_active", true).order("name") : null;
   const unitOptions = (unitsQ?.data ?? []) as { id: number; name: string; parent_id: number | null; level: "DEPARTMENT" | "UNIT" }[];
 
@@ -150,7 +153,7 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
           <p className="rounded-xl border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">Нет строк с таким статусом.</p>
         ) : (
           <ul className="space-y-2" data-testid="import-rows">
-            {views.map((r) => (<ImportRowCard key={r.id} jobId={id} entity={entity} row={r} canDecide={staged && canWork} units={unitOptions} canEditUnits={can(access.session.role, "orgUnits")} />))}
+            {views.map((r) => (<ImportRowCard key={r.id} jobId={id} entity={entity} row={r} canDecide={staged && canWork} canResolveUnits={canResolveUnits} applied={committed} units={unitOptions} canEditUnits={can(access.session.role, "orgUnits")} />))}
           </ul>
         )}
         {total > PAGE && (

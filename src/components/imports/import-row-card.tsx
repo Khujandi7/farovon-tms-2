@@ -34,7 +34,7 @@ export function applyLabel(entity: ImportEntity, code: string | null): string | 
  * с существующим подразделением (псевдоним). Автоматически ничего не объединяется — выбор делает человек. После действия строка
  * проверяется повторно: если названия разрешились, она возвращается в обычный статус, замечание Data Quality закрывается.
  */
-function UnitResolver({ jobId, row, issues, units, canEdit }: { jobId: string; row: JobRowView; issues: UnitIssue[]; units: OrgUnitOption[]; canEdit: boolean }) {
+function UnitResolver({ jobId, row, issues, units, canEdit, applied }: { jobId: string; row: JobRowView; issues: UnitIssue[]; units: OrgUnitOption[]; canEdit: boolean; applied: boolean }) {
   const router = useRouter();
   const { notify } = useToast();
   const [pending, start] = useTransition();
@@ -62,6 +62,7 @@ function UnitResolver({ jobId, row, issues, units, canEdit }: { jobId: string; r
   return (
     <div className="space-y-2 rounded-lg bg-muted/40 p-2 text-sm" data-testid="import-unit-resolver">
       <p className="font-medium">{first.kind === "DEPARTMENT" ? "Подразделение" : "Отдел"} «{first.name}» не найдено в справочнике</p>
+      {applied && <p className="text-xs text-muted-foreground" data-testid="import-unit-applied-note">Импорт уже применён: сотрудники не изменятся. Исправление подразделения обновит только эту строку и замечание; применить строку можно повторной загрузкой файла.</p>}
       {canEdit ? (
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="space-y-1.5">
@@ -110,7 +111,7 @@ function UnitResolver({ jobId, row, issues, units, canEdit }: { jobId: string; r
   );
 }
 
-export function ImportRowCard({ jobId, entity, row, canDecide, units = [], canEditUnits = false }: { jobId: string; entity: ImportEntity; row: JobRowView; canDecide: boolean; units?: OrgUnitOption[]; canEditUnits?: boolean }) {
+export function ImportRowCard({ jobId, entity, row, canDecide, units = [], canEditUnits = false, canResolveUnits = canDecide, applied = false }: { jobId: string; entity: ImportEntity; row: JobRowView; canDecide: boolean; units?: OrgUnitOption[]; canEditUnits?: boolean; canResolveUnits?: boolean; applied?: boolean }) {
   const router = useRouter();
   const { notify } = useToast();
   const [pending, start] = useTransition();
@@ -159,9 +160,16 @@ export function ImportRowCard({ jobId, entity, row, canDecide, units = [], canEd
           {row.messages.map((m, i) => (<li key={i}>{m}</li>))}
         </ul>
       )}
+      {/* Разбор подразделения допустим и в применённом импорте (canResolveUnits): он меняет только строку и замечание, не сотрудников.
+          Решения «применить/пропустить/сопоставить» — только до применения (canDecide). */}
+      {unitIssues.length > 0 && canResolveUnits && !canDecide && (
+        <div className="space-y-2 border-t pt-2" data-testid="import-row-resolve">
+          <UnitResolver jobId={jobId} row={row} issues={unitIssues} units={units} canEdit={canEditUnits} applied={applied} />
+        </div>
+      )}
       {review && canDecide && (
         <div className="space-y-2 border-t pt-2" data-testid="import-row-resolve">
-          {unitIssues.length > 0 && <UnitResolver jobId={jobId} row={row} issues={unitIssues} units={units} canEdit={canEditUnits} />}
+          {unitIssues.length > 0 && <UnitResolver jobId={jobId} row={row} issues={unitIssues} units={units} canEdit={canEditUnits} applied={false} />}
           {row.candidates.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {row.candidates.slice(0, 5).map((c) => (
