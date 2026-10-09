@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { WF_ERR, workflowErrorMessage } from "./errors";
 
 describe("workflowErrorMessage", () => {
+  it("таймаут оператора (57014) — понятное сообщение с предложением повторить", () => {
+    expect(workflowErrorMessage({ code: "57014", message: "canceling statement due to statement timeout", status: 500 })).toContain("повторите");
+  });
   it("P0012 → просьба указать причину", () => {
     expect(workflowErrorMessage({ code: "P0012", message: "Укажите причину изменения" })).toBe(WF_ERR.reason);
   });

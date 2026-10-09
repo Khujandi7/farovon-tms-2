@@ -125,6 +125,93 @@ select pg_temp.ok((select unchanged_rows = 2646 and new_rows = 0 and updated_row
 select pg_temp.rv('C', format($q$select import_commit(%L, 'повтор')$q$, pg_temp.kid('again')));
 select pg_temp.ok((select count(*) from employees where employee_code like 'H-%') = 2646, 'H35 повторное применение не создаёт дубликатов');
 
+
+-- ====================== ПАКЕТНОЕ ПРИМЕНЕНИЕ (import_commit_batch) ======================
+create or replace function pg_temp.brows(p_from int, p_to int) returns jsonb language sql as $$
+  select coalesce(jsonb_agg(jsonb_build_object('row_no', n, 'raw', jsonb_build_object('ФИО', 'Бэтч'||n),
+         'data', jsonb_build_object('employee_code', 'B-'||lpad(n::text,5,'0'), 'full_name', 'Пакетов'||translate(n::text,'0123456789','абвгдежзик')||' Работник', 'position', 'Оператор')) order by n), '[]'::jsonb)
+  from generate_series(p_from, p_to) n $$;
+create or replace function pg_temp.batch(p_job text, p_limit int, p_reason text) returns jsonb language sql as $$
+  select pg_temp.rv('C', format($q$select import_commit_batch(%L, %s, %L)::text$q$, p_job, p_limit, p_reason))::jsonb $$;
+create or replace function pg_temp.drain(p_job text, p_limit int) returns int language plpgsql as $$
+declare n int := 0; v jsonb; begin
+  loop
+    -- как клиент: причина только на первом шаге (статус STAGED), дальше задание в COMMITTING
+    v := pg_temp.batch(p_job, p_limit, case when n = 0 then 'тест пакетов' end); n := n + 1;
+    exit when (v->>'remaining')::int = 0 or n > 200;
+  end loop;
+  return n;
+end $$;
+-- Прерывание пакета по ограничению времени. statement_timeout задать здесь нельзя: таймер уже запущен для
+-- внешнего оператора, и 'set local' внутри него не действует. Поэтому ту же ошибку (57014 query_canceled)
+-- поднимает триггер на employees — проверяется именно то поведение, которое нужно: код 57014 проходит сквозь
+-- savepoint строки и откатывает весь пакет (отметки processed_at и изменения справочника).
+create or replace function pg_temp.cancel_try(p_job text) returns boolean language plpgsql as $$
+declare cancelled boolean := false; begin
+  perform set_config('request.jwt.claim.sub', pg_temp.uid('C'), true);
+  set local role authenticated;
+  begin
+    perform import_commit_batch(p_job::uuid, 100, null);
+  exception when query_canceled then cancelled := true;
+            when others then reset role; raise; end;
+  reset role;
+  return cancelled;
+end $$;
+create or replace function pg_temp.trg_boom() returns trigger language plpgsql as $$
+begin
+  if new.employee_code = 'B-00150' then raise exception 'canceling statement due to statement timeout' using errcode = '57014'; end if;
+  return new;
+end $$;
+
+insert into k select 'bj', pg_temp.begin_job(351, 'aaaaaaaa-0000-4000-8000-0000000000bb');
+select pg_temp.append(pg_temp.kid('bj'), pg_temp.brows(1, 350) || jsonb_build_array(jsonb_build_object('row_no', 351, 'raw', '{"x":"1"}'::jsonb, 'data', '{"employee_code":"D1","full_name":"Иванов Иван","position":"Главный аналитик"}'::jsonb)));
+select pg_temp.finish(pg_temp.kid('bj'));
+select pg_temp.ok((select status from import_jobs where id = pg_temp.kid('bj')::uuid) = 'STAGED', 'B0 задание проанализировано (STAGED)');
+select pg_temp.ok((select status from import_job_rows where job_id = pg_temp.kid('bj')::uuid and row_no = 351) = 'UPDATED', 'B0a строка D1 — обновление существующего сотрудника');
+update import_job_rows set data = data || '{"department_id":"нет"}'::jsonb where job_id = pg_temp.kid('bj')::uuid and row_no = 10;
+
+select pg_temp.err_as('C', format($q$select import_commit_batch(%L, 100, null)$q$, pg_temp.kid('bj')), 'B1 первый пакет без причины отклоняется', 'Укажите причину');
+-- FINANCE: can_import('EMPLOYEES') = false, поэтому политика import_jobs_all вообще не показывает задание —
+-- отказ приходит как «Импорт не найден» (P0015), ровно как и в прежнем import_commit.
+select pg_temp.err_as('F', format($q$select import_commit_batch(%L, 100, 'x')$q$, pg_temp.kid('bj')), 'B2 FINANCE не применяет сотрудников (задание скрыто RLS)', 'Импорт не найден');
+select pg_temp.err_as('D', format($q$select import_commit_batch(%L, 100, 'x')$q$, pg_temp.kid('bj')), 'B2a VIEWER не применяет сотрудников', 'Импорт не найден');
+select pg_temp.err_as('C', format($q$select import_commit_batch(%L, 0, 'x')$q$, pg_temp.kid('bj')), 'B3 размер пакета 0 отклоняется', 'Размер пакета');
+select pg_temp.err_as('C', format($q$select import_commit_batch(%L, 501, 'x')$q$, pg_temp.kid('bj')), 'B4 размер пакета больше 500 отклоняется', 'Размер пакета');
+
+select pg_temp.ok((pg_temp.batch(pg_temp.kid('bj'), 100, 'пакетами сотрудников'))->>'processed_now' = '100', 'B5 первый пакет: обработано 100');
+select pg_temp.ok((select status from import_jobs where id = pg_temp.kid('bj')::uuid) = 'COMMITTING', 'B6 после первого пакета статус COMMITTING');
+select pg_temp.ok((pg_temp.batch(pg_temp.kid('bj'), 1, null))->>'remaining' = '250', 'B7 пакет из одной строки на COMMITTING без причины; остаток 250');
+select pg_temp.ok((select count(*) from import_job_rows where job_id = pg_temp.kid('bj')::uuid and processed_at is not null) = 101, 'B8 отмечено 101 строка, без дублей');
+select pg_temp.err_as('C', format($q$select import_commit(%L, 'legacy')$q$, pg_temp.kid('bj')), 'B9 полное применение (import_commit) на COMMITTING отклоняется', 'уже выполнен');
+select pg_temp.err_as('C', format($q$select import_cancel(%L, 'тест')$q$, pg_temp.kid('bj')), 'B10 отмена во время применения отклоняется', 'P0015');
+
+create trigger zz_boom before insert on employees for each row execute function pg_temp.trg_boom();
+select pg_temp.ok(pg_temp.cancel_try(pg_temp.kid('bj')), 'B11 прерывание по времени посреди пакета доходит до вызывающего (57014)');
+select pg_temp.ok((select count(*) from import_job_rows where job_id = pg_temp.kid('bj')::uuid and processed_at is not null) = 101, 'B12 после таймаута ни одна строка пакета не отмечена (откат целиком)');
+select pg_temp.ok((select count(*) from employees where employee_code like 'B-%') = 99, 'B13 после таймаута создано ровно 99 сотрудников (первый пакет без строки с ошибкой)');
+drop trigger zz_boom on employees;
+
+select pg_temp.ok(pg_temp.drain(pg_temp.kid('bj'), 100) >= 3, 'B14 оставшиеся пакеты применены');
+select pg_temp.ok((select status from import_jobs where id = pg_temp.kid('bj')::uuid) = 'COMMITTED', 'B15 после последнего пакета статус COMMITTED');
+select pg_temp.ok((select count(*) from import_job_rows where job_id = pg_temp.kid('bj')::uuid and processed_at is null) = 0, 'B16 все строки обработаны');
+select pg_temp.ok((select count(*) from employees where employee_code like 'B-%') = 349, 'B17 создано 349 сотрудников (350 минус строка с ошибкой), без дублей');
+select pg_temp.ok((select count(distinct employee_code) from employees where employee_code like 'B-%') = 349, 'B18 табельные номера уникальны');
+select pg_temp.ok((select apply_action = 'ERROR' and apply_error is not null from import_job_rows where job_id = pg_temp.kid('bj')::uuid and row_no = 10), 'B19 строка с ошибкой применения помечена ERROR с текстом');
+select pg_temp.ok((select inserted = 349 and updated = 1 and apply_errors = 1 and skipped = 0 from import_jobs where id = pg_temp.kid('bj')::uuid), 'B20 счётчики: создано 349, обновлено 1, ошибок 1, пропущено 0');
+select pg_temp.ok((select position from employees where employee_code = 'D1') = 'Главный аналитик' and (select count(*) from employees where employee_code = 'D1') = 1, 'B21 существующий сотрудник обновлён, дубля нет');
+select pg_temp.ok((pg_temp.batch(pg_temp.kid('bj'), 100, 'повтор'))->>'status' = 'COMMITTED', 'B22 повторный вызов после завершения возвращает итог');
+select pg_temp.ok((select count(*) from employees where employee_code like 'B-%') = 349, 'B23 повтор после завершения ничего не меняет');
+select pg_temp.err_as('C', format($q$select import_commit(%L, 'legacy')$q$, pg_temp.kid('bj')), 'B24 import_commit на завершённом пакетном задании отклоняется', 'уже выполнен');
+select pg_temp.ok(not has_function_privilege('anon', 'import_commit_batch(uuid, integer, text)', 'execute'), 'B25 anon не вызывает import_commit_batch');
+
+insert into k select 'bigb', pg_temp.begin_job(2646, 'aaaaaaaa-0000-4000-8000-0000000000cc');
+-- отдельные табельные номера и ФИО (G-, «Тысяча»), чтобы не совпасть с партией B- и не дать неоднозначных совпадений
+select pg_temp.append(pg_temp.kid('bigb'), replace(replace(pg_temp.brows(s, least(s + 299, 2646))::text, '"B-', '"G-'), 'Пакетов', 'Тысяча')::jsonb) from generate_series(1, 2646, 300) s;
+select pg_temp.finish(pg_temp.kid('bigb'));
+select pg_temp.ok((select new_rows = 2646 from import_jobs where id = pg_temp.kid('bigb')::uuid), 'B26 2646 строк проанализированы как новые');
+select pg_temp.ok(pg_temp.drain(pg_temp.kid('bigb'), 120) >= 22, 'B27 2646 строк применены пакетами по 120');
+select pg_temp.ok((select inserted = 2646 and apply_errors = 0 and status = 'COMMITTED' from import_jobs where id = pg_temp.kid('bigb')::uuid), 'B28 итог: 2646 создано, ошибок нет, COMMITTED');
+
 do $$
 declare total int; passed int; fails text;
 begin
