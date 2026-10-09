@@ -13,7 +13,9 @@ import { can } from "@/lib/workflows/roles";
 export const metadata: Metadata = { title: "Справочники" };
 export const dynamic = "force-dynamic";
 
-export default async function ReferencesPage() {
+export default async function ReferencesPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
+  const sp = await searchParams;
+  const initialQuery = (Array.isArray(sp.q) ? sp.q[0] : sp.q)?.slice(0, 200) ?? "";
   const session = await requireSession();
   const allowed = session.status === "ok" && can(session.role, "references");
   let rows: OrgUnitRow[] = [];
@@ -43,7 +45,7 @@ export default async function ReferencesPage() {
   const role = allowed && session.status === "ok" ? session.role : null;
   return (
     <div className="space-y-8">
-      <PageHeader title="Справочники" description="Типы мероприятий, провайдеры и подразделения. Изменения попадают в журнал." />
+      <PageHeader title="Справочники" description="Типы мероприятий, провайдеры, подразделения и отделы. Изменения попадают в журнал." />
       {!allowed ? (
         <ForbiddenState className="bg-card" title="Нет доступа" description="Справочники ведут администратор, менеджер академии и HR." />
       ) : (
@@ -56,9 +58,9 @@ export default async function ReferencesPage() {
             <h2 id="ref-providers" className="text-base font-semibold">Провайдеры и организаторы</h2>
             {typesFailed ? null : <ProvidersManager providers={providers} canEdit={can(role, "provider")} />}
           </section>
-          <section aria-labelledby="ref-units" className="space-y-3">
-            <h2 id="ref-units" className="text-base font-semibold">Подразделения</h2>
-            {failed ? <ErrorState className="bg-card" title="Не удалось загрузить справочник" /> : <OrgUnitsManager units={rows} canEdit={can(role, "orgUnits")} />}
+          <section id="units" aria-labelledby="ref-units" className="space-y-3">
+            <h2 id="ref-units" className="text-base font-semibold">Подразделения и отделы</h2>
+            {failed ? <ErrorState className="bg-card" title="Не удалось загрузить справочник" /> : <OrgUnitsManager units={rows} canEdit={can(role, "orgUnits")} initialQuery={initialQuery} />}
           </section>
         </>
       )}

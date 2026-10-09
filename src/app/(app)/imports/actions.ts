@@ -202,6 +202,24 @@ export async function resolveImportRow(input: unknown): Promise<Result> {
   return { ok: true, message: "Решение сохранено.", data: undefined };
 }
 
+/**
+ * Повторная проверка строки «Подразделение не найдено» после того, как подразделение создано или написание сопоставлено.
+ * Остальные данные строки не меняются; если подразделение разрешилось — строка становится обычной (NEW/UPDATED), замечание Data Quality закрывается.
+ */
+export async function reanalyzeImportRow(input: unknown): Promise<Result<{ resolved: boolean; messages: string[] }>> {
+  const actor = await requireRole(WF_ROLES.importAny);
+  if (!actor.ok) return actor;
+  const p = z.object({ jobId: uuid, rowId: z.coerce.number().int().positive() }).safeParse(input);
+  if (!p.success) return fail(WF_ERR.invalid);
+  const res = await callRpc("import_reanalyze_row", { p_row: p.data.rowId });
+  if (!res.ok) return res;
+  const o = (res.data ?? {}) as { resolved?: boolean; messages?: string[] };
+  refresh(p.data.jobId);
+  revalidatePath("/data-quality");
+  const resolved = Boolean(o.resolved);
+  return { ok: true, message: resolved ? "Подразделение найдено: строка проверена повторно." : "Подразделение всё ещё не найдено. Создайте его или сопоставьте написание.", data: { resolved, messages: o.messages ?? [] } };
+}
+
 export async function commitImport(input: { jobId: string; reason?: string | null }): Promise<Result<{ inserted: number; updated: number; skipped: number }>> {
   const actor = await requireRole(WF_ROLES.importAny);
   if (!actor.ok) return actor;

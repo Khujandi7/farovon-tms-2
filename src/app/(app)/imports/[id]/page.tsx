@@ -10,6 +10,7 @@ import { ImportStepper } from "@/components/imports/import-stepper";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getSectionAccess } from "@/lib/auth/session";
+import { can } from "@/lib/workflows/roles";
 import { createClient } from "@/lib/supabase/server";
 import { ENTITY_LABELS, JOB_STATUS_LABELS, ROW_STATUS_LABELS, SOURCE_LABELS, canImportEntity, isImportEntity } from "@/lib/imports/entities";
 import type { JobRowView } from "@/lib/imports/types";
@@ -77,7 +78,12 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
     data: (r.raw && typeof r.raw === "object" && !Array.isArray(r.raw) ? r.raw : {}) as Record<string, unknown>,
     candidates: Array.isArray(r.candidates) ? (r.candidates as unknown as JobRowView["candidates"]) : [],
     decision: r.decision, decision_match: r.decision_match, match_id: r.match_id,
+    dept_id: r.data && typeof r.data === "object" && !Array.isArray(r.data) && (r.data as Record<string, unknown>).department_id ? Number((r.data as Record<string, unknown>).department_id) : null,
   }));
+  // справочник подразделений нужен только если на странице есть строки «Подразделение не найдено»
+  const needUnits = staged && views.some((v) => v.status === "NEEDS_REVIEW" && v.review_code === "UNIT_UNKNOWN");
+  const unitsQ = needUnits ? await supabase.from("org_units").select("id, name, parent_id, level").eq("is_active", true).order("name") : null;
+  const unitOptions = (unitsQ?.data ?? []) as { id: number; name: string; parent_id: number | null; level: "DEPARTMENT" | "UNIT" }[];
 
   return (
     <div className="space-y-6">
@@ -144,7 +150,7 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
           <p className="rounded-xl border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">Нет строк с таким статусом.</p>
         ) : (
           <ul className="space-y-2" data-testid="import-rows">
-            {views.map((r) => (<ImportRowCard key={r.id} jobId={id} entity={entity} row={r} canDecide={staged && canWork} />))}
+            {views.map((r) => (<ImportRowCard key={r.id} jobId={id} entity={entity} row={r} canDecide={staged && canWork} units={unitOptions} canEditUnits={can(access.session.role, "orgUnits")} />))}
           </ul>
         )}
         {total > PAGE && (

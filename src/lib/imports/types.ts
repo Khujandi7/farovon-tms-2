@@ -19,4 +19,6 @@ export type JobRowView = {
   decision: string | null;
   decision_match: string | null;
   match_id: string | null;
+  /** department_id, уже разрешённый в строке (для выбора департамента нового отдела) */
+  dept_id?: number | null;
 };

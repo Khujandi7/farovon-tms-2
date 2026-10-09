@@ -57,8 +57,8 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <Button asChild variant="outline">
-                  <Link href="/settings/references">
-                    <Building2 /> Подразделения
+                  <Link href="/settings/references#units">
+                    <Building2 /> Подразделения и отделы
                   </Link>
                 </Button>
               </CardContent>
