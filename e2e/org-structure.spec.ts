@@ -5,6 +5,7 @@ import { signInAs } from "./helpers";
 // Mock (e2e/mock-phase3c.mjs) только имитирует RPC; настоящую логику проверяет supabase/tests/phase3c_tests.sql.
 const MOCK = "http://127.0.0.1:54399";
 const JOB = "dddddddd-dddd-4ddd-8ddd-000000000001";
+const DONE_JOB = "dddddddd-dddd-4ddd-8ddd-000000000002";
 
 test.describe("справочник подразделений", () => {
   test("раздел находится по якорю #units, поиск фильтрует список", async ({ page, context, baseURL }) => {
@@ -81,5 +82,39 @@ test.describe("разрешение замечания импорта «подр
     await signInAs(context, "admin@test.local", baseURL!);
     await page.goto("/settings");
     await expect(page.getByRole("link", { name: /Подразделения и отделы/ }).first()).toHaveAttribute("href", "/settings/references#units");
+  });
+});
+
+// Регресс HOTFIX M25: состояние Production — задание «Применён» (COMMITTED), строка NEEDS_REVIEW с UNIT_UNKNOWN.
+test.describe("применённый импорт: строки UNIT_UNKNOWN можно разрешать", () => {
+  test("действия доступны, создание отдела → «Проверить снова» обновляет строку, сотрудники не затрагиваются", async ({ page, context, baseURL }) => {
+    const sid = await signInAs(context, "hr@test.local", baseURL!);
+    await page.goto(`/imports/${DONE_JOB}`);
+    await expect(page.getByTestId("import-job-status")).toHaveText("Применён");
+    const box = page.getByTestId("import-unit-resolver");
+    await expect(box).toContainText("Цех откорма");
+    await expect(box.getByTestId("import-unit-create")).toBeVisible();
+    await expect(box.getByTestId("import-unit-map")).toBeVisible();
+    await expect(box.getByTestId("import-unit-recheck")).toBeVisible();
+    await expect(box.getByTestId("import-unit-applied-note")).toBeVisible();
+    // решения «применить/пропустить» после применения недоступны
+    await expect(page.getByTestId("import-skip")).toHaveCount(0);
+    await box.getByTestId("import-unit-create").click();
+    await expect(page.getByTestId("import-unit-resolver")).toHaveCount(0, { timeout: 15_000 });
+    const state = await (await page.request.get(`${MOCK}/__mock/phase3c?sid=${sid}`)).json();
+    expect(state.doneRow.status).toBe("NEW");
+    expect(state.doneReanalyzed).toBeGreaterThanOrEqual(1);
+  });
+
+  test("закреплённый алиас: сопоставить и «Проверить снова» в применённом задании", async ({ page, context, baseURL }) => {
+    const sid = await signInAs(context, "admin@test.local", baseURL!);
+    await page.goto(`/imports/${DONE_JOB}`);
+    const box = page.getByTestId("import-unit-resolver");
+    await box.getByLabel("Существующее подразделение").selectOption({ label: "Бухгалтерия" });
+    await box.getByTestId("import-unit-map").click();
+    await expect.poll(async () => (await (await page.request.get(`${MOCK}/__mock/phase3c?sid=${sid}`)).json()).doneReanalyzed ?? 0).toBeGreaterThanOrEqual(1);
+    const state = await (await page.request.get(`${MOCK}/__mock/phase3c?sid=${sid}`)).json();
+    expect(state.aliases).toHaveLength(1);
+    expect(state.units).toHaveLength(3);
   });
 });

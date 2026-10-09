@@ -3,6 +3,8 @@
 import { storeFor } from "./mock-phase3.mjs";
 
 export const UNIT_JOB = "dddddddd-dddd-4ddd-8ddd-000000000001";
+// Состояние Production: задание уже применено (COMMITTED), строка пропущена и осталась NEEDS_REVIEW/UNIT_UNKNOWN
+export const DONE_JOB = "dddddddd-dddd-4ddd-8ddd-000000000002";
 const MANAGE = ["ADMIN", "ACADEMY_MANAGER", "HR"];
 const ok = (res, body, headers = {}) => { res.writeHead(200, { "content-type": "application/json", ...headers }); res.end(JSON.stringify(body)); return true; };
 const pgErr = (res, status, code, message) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify({ code, message })); return true; };
@@ -17,12 +19,16 @@ function st(store) {
         { id: 3, name: "Департамент рисков", parent_id: null, level: "DEPARTMENT", is_active: true },
       ],
       aliases: [], next: 100, nextRow: 1, bulkCalls: 0, reanalyzed: 0,
+      doneRow: null,
       row: { id: 501, row_no: 2, status: "NEEDS_REVIEW", messages: ["Отдел «Цех откорма» не найден"], review_code: "UNIT_UNKNOWN",
         data: { employee_code: "F-0009", full_name: "Тестов Тест Тестович", position: "Оператор", department_id: 1, department: "Финансовый департамент", unit: "Цех откорма" }, raw: {}, candidates: [], decision: null, decision_match: null, match_id: null },
     };
   }
+  if (!store.c3.doneRow) store.c3.doneRow = { ...JSON.parse(JSON.stringify(store.c3.row)), id: 502 };
   return store.c3;
 }
+const doneJob = (s) => ({ ...job(s), id: DONE_JOB, status: "COMMITTED", total_rows: 1, new_rows: s.doneRow.status === "NEW" ? 1 : 0, review_rows: s.doneRow.status === "NEEDS_REVIEW" ? 1 : 0,
+  inserted: 0, updated: 0, skipped: 1, conflicts: s.doneRow.status === "NEEDS_REVIEW" ? 1 : 0, committed_at: "2026-10-09T11:00:00Z" });
 const job = (s) => ({ id: UNIT_JOB, entity: "EMPLOYEES", source: "FILE", file_name: "employees.csv", file_hash: "x", mapping: {}, options: {}, status: "STAGED", total_rows: 1,
   new_rows: s.row.status === "NEW" ? 1 : 0, updated_rows: 0, unchanged_rows: 0, duplicate_rows: 0, review_rows: s.row.status === "NEEDS_REVIEW" ? 1 : 0, error_rows: 0,
   inserted: 0, updated: 0, skipped: 0, conflicts: 0, apply_errors: 0, created_at: "2026-10-09T10:00:00Z", created_by: null, committed_at: null, cancelled_at: null, reason: null });
@@ -44,11 +50,13 @@ export function handlePhase3c(req, res, url, body, role, sid) {
         return false;
       }
       case "org_unit_aliases": return sel === "org_unit_id,alias_norm" ? out(s.aliases) : false;
-      case "import_jobs": return idEq === `eq.${UNIT_JOB}` ? out(can ? [job(s)] : []) : false;
+      case "import_jobs": return idEq === `eq.${UNIT_JOB}` ? out(can ? [job(s)] : []) : idEq === `eq.${DONE_JOB}` ? out(can ? [doneJob(s)] : []) : false;
       case "import_job_rows": {
-        if (url.searchParams.get("job_id") !== `eq.${UNIT_JOB}`) return false;
-        if (url.searchParams.get("status") === "eq.NEEDS_REVIEW" || sel === "id") return ok(res, [], { "content-range": `*/${s.row.status === "NEEDS_REVIEW" ? 1 : 0}` });
-        return out(can ? [s.row] : []);
+        const jid = url.searchParams.get("job_id");
+        const rw = jid === `eq.${UNIT_JOB}` ? s.row : jid === `eq.${DONE_JOB}` ? s.doneRow : null;
+        if (!rw) return false;
+        if (url.searchParams.get("status") === "eq.NEEDS_REVIEW" || sel === "id") return ok(res, [], { "content-range": `*/${rw.status === "NEEDS_REVIEW" ? 1 : 0}` });
+        return out(can ? [rw] : []);
       }
       default: return false;
     }
@@ -84,12 +92,14 @@ export function handlePhase3c(req, res, url, body, role, sid) {
       }
       case "import_reanalyze_row": {
         if (!can) return pgErr(res, 400, "P0015", "Строка не найдена");
+        const rw = body.p_row === s.doneRow.id ? s.doneRow : s.row;
         s.reanalyzed++;
-        const d = s.row.data;
+        if (rw === s.doneRow) s.doneReanalyzed = (s.doneReanalyzed ?? 0) + 1;
+        const d = rw.data;
         const found = s.units.some((u) => u.is_active && u.parent_id === d.department_id && norm(u.name) === norm(d.unit))
           || s.aliases.some((a) => a.alias_norm === norm(d.unit) && s.units.find((u) => u.id === a.org_unit_id)?.parent_id === d.department_id);
-        if (found && s.row.status === "NEEDS_REVIEW") { s.row.status = "NEW"; s.row.review_code = null; s.row.messages = []; }
-        return ok(res, { resolved: found, status: s.row.status, messages: s.row.messages });
+        if (found && rw.status === "NEEDS_REVIEW") { rw.status = "NEW"; rw.review_code = null; rw.messages = []; }
+        return ok(res, { resolved: found, status: rw.status, messages: rw.messages });
       }
       default: return false;
     }
