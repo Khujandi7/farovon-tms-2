@@ -1649,6 +1649,8 @@ export type Database = {
           messages: string[]
           processed_at: string | null
           raw: NonNullable<Json>
+          reapplied_at: string | null
+          reapplied_by: string | null
           review_code: string | null
           row_no: number
           status: string
@@ -1671,6 +1673,8 @@ export type Database = {
           messages?: string[]
           processed_at?: string | null
           raw: NonNullable<Json>
+          reapplied_at?: string | null
+          reapplied_by?: string | null
           review_code?: string | null
           row_no: number
           status: string
@@ -1692,6 +1696,8 @@ export type Database = {
           messages?: string[]
           processed_at?: string | null
           raw?: NonNullable<Json>
+          reapplied_at?: string | null
+          reapplied_by?: string | null
           review_code?: string | null
           row_no?: number
           status?: string
@@ -3783,6 +3789,15 @@ export type Database = {
         Args: { p_entity: string; p_in: Json; p_options: Json }
         Returns: Json
       }
+      import_apply_resolved_batch: {
+        Args: {
+          p_after?: number
+          p_job: string
+          p_limit?: number
+          p_reason?: string
+        }
+        Returns: Json
+      }
       import_bool: { Args: { p: string }; Returns: boolean }
       import_cancel: {
         Args: { p_job: string; p_reason: string }
@@ -3806,6 +3821,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      import_job_recount: { Args: { p_job: string }; Returns: undefined }
       import_lineage: {
         Args: {
           p_entity: string
@@ -3816,11 +3832,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      import_match_employees_fast: {
+        Args: { p_code: string; p_name: string }
+        Returns: Json
+      }
+      import_reanalyze_job: {
+        Args: { p_after?: number; p_job: string; p_limit?: number }
+        Returns: Json
+      }
       import_reanalyze_row: { Args: { p_row: number }; Returns: Json }
       import_resolve_row: {
         Args: { p_decision: string; p_match?: string; p_row: number }
         Returns: undefined
       }
+      import_resolved_preview: { Args: { p_job: string }; Returns: Json }
       import_row_key: {
         Args: { p_analyzed: Json; p_data: Json; p_entity: string }
         Returns: string

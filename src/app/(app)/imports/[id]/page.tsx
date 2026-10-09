@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { ErrorState, ForbiddenState } from "@/components/common/states";
 import { ImportJobActions } from "@/components/imports/import-job-actions";
+import { previewResolvedRows } from "@/app/(app)/imports/actions";
+import { ImportFinishPanel } from "@/components/imports/import-finish-panel";
 import { ImportRowCard } from "@/components/imports/import-row-card";
 import { ImportStepper } from "@/components/imports/import-stepper";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +86,8 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
   // Разбор подразделений доступен и после применения (COMMITTED): строки с UNIT_UNKNOWN были пропущены, а справочник мог быть исправлен позже.
   const committed = job.status === "COMMITTED";
   const canResolveUnits = (staged || committed) && canWork;
+  const showFinish = committed && entity === "EMPLOYEES" && canWork && (job.review_rows > 0 || job.new_rows + job.updated_rows > job.inserted + job.updated);
+  const finishPreview = showFinish ? await previewResolvedRows({ jobId: id }) : null;
   const needUnits = canResolveUnits && views.some((v) => v.status === "NEEDS_REVIEW" && v.review_code === "UNIT_UNKNOWN");
   const unitsQ = needUnits ? await supabase.from("org_units").select("id, name, parent_id, level").eq("is_active", true).order("name") : null;
   const unitOptions = (unitsQ?.data ?? []) as { id: number; name: string; parent_id: number | null; level: "DEPARTMENT" | "UNIT" }[];
@@ -136,6 +140,7 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
         </section>
       )}
 
+      {showFinish && <ImportFinishPanel jobId={id} initial={finishPreview?.ok ? finishPreview.data : null} />}
       {(staged || committing) && canWork && (
         <ImportJobActions key={job.status} jobId={id} unresolved={unresolved} totalApply={job.new_rows + job.updated_rows} status={job.status} processed={processedRows} total={job.total_rows} />
       )}

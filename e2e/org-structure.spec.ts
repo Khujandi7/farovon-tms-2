@@ -6,6 +6,7 @@ import { signInAs } from "./helpers";
 const MOCK = "http://127.0.0.1:54399";
 const JOB = "dddddddd-dddd-4ddd-8ddd-000000000001";
 const DONE_JOB = "dddddddd-dddd-4ddd-8ddd-000000000002";
+const FINISH_JOB = "dddddddd-dddd-4ddd-8ddd-000000000003";
 
 test.describe("справочник подразделений", () => {
   test("раздел находится по якорю #units, поиск фильтрует список", async ({ page, context, baseURL }) => {
@@ -116,5 +117,49 @@ test.describe("применённый импорт: строки UNIT_UNKNOWN м
     const state = await (await page.request.get(`${MOCK}/__mock/phase3c?sid=${sid}`)).json();
     expect(state.aliases).toHaveLength(1);
     expect(state.units).toHaveLength(3);
+  });
+});
+
+// M26: дозавершение применённого импорта — пакетный разбор, предпросмотр, подтверждение с причиной, прогресс и итог.
+test.describe("дозавершение применённого импорта (M26)", () => {
+  test("перепроверить → предпросмотр → применить с подтверждением: итог и сохранение в БД", async ({ page, context, baseURL }) => {
+    const sid = await signInAs(context, "hr@test.local", baseURL!);
+    await page.goto(`/imports/${FINISH_JOB}`);
+    const panel = page.getByTestId("import-finish-panel");
+    await expect(panel).toBeVisible();
+    await expect(page.getByTestId("import-finish-unresolved")).toHaveText("5");
+    await expect(page.getByTestId("import-finish-ready")).toHaveText("0");
+    await expect(page.getByTestId("import-finish-names")).toContainText("Птицефабрика №2");
+    await expect(page.getByTestId("import-finish-apply")).toBeDisabled(); // применять пока нечего
+    await page.getByTestId("import-finish-reanalyze").click();
+    await expect(page.getByTestId("import-finish-ready")).toHaveText("4");
+    await expect(page.getByTestId("import-finish-unresolved")).toHaveText("1");
+    await expect(page.getByTestId("import-finish-create")).toHaveText("3");
+    await expect(page.getByTestId("import-finish-update")).toHaveText("1");
+    await expect(page.getByTestId("import-finish-reanalyze-note")).toContainText("Подразделение найдено: 4");
+    // до подтверждения ничего не применено
+    let state = await (await page.request.get(`${MOCK}/__mock/phase3c?sid=${sid}`)).json();
+    expect(state.fin.applyCalls).toBe(0);
+    await page.getByTestId("import-finish-apply").click();
+    const dlg = page.getByTestId("import-finish-dialog");
+    await expect(dlg).toContainText("создать 3, обновить 1");
+    await dlg.getByRole("button", { name: "Применить" }).click(); // без причины не уходит
+    state = await (await page.request.get(`${MOCK}/__mock/phase3c?sid=${sid}`)).json();
+    expect(state.fin.applyCalls).toBe(0);
+    await dlg.locator("textarea").fill("Дозавершение после исправления справочника");
+    await dlg.getByRole("button", { name: "Применить" }).click();
+    await expect(page.getByTestId("import-finish-summary")).toContainText("создано 3, обновлено 1", { timeout: 20_000 });
+    await expect(page.getByTestId("import-finish-ready")).toHaveText("0");
+    state = await (await page.request.get(`${MOCK}/__mock/phase3c?sid=${sid}`)).json();
+    expect(state.fin.applyCalls).toBe(2); // пакеты по 2 строки
+    expect(state.fin.reasons.every((r: string) => r.includes("Дозавершение"))).toBe(true);
+    expect(state.fin.created).toBe(3);
+    expect(state.fin.updated).toBe(1);
+  });
+
+  test("VIEWER не видит панель дозавершения", async ({ page, context, baseURL }) => {
+    await signInAs(context, "viewer@test.local", baseURL!);
+    await page.goto(`/imports/${FINISH_JOB}`);
+    await expect(page.getByTestId("import-finish-panel")).toHaveCount(0);
   });
 });

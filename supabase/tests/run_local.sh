@@ -66,5 +66,8 @@ fi
 if [ -f "$DIR/tests/hotfix2_reanalyze_tests.sql" ]; then
   echo "== ТЕСТЫ HOTFIX M25 (разбор UNIT_UNKNOWN в применённом импорте, только локально) =="; run_test "$DIR/tests/hotfix2_reanalyze_tests.sql"
 fi
+if [ -f "$DIR/tests/hotfix3_apply_resolved_tests.sql" ]; then
+  echo "== ТЕСТЫ HOTFIX M26 (дозавершение применённого импорта, только локально) =="; run_test "$DIR/tests/hotfix3_apply_resolved_tests.sql"
+fi
 echo "== ОТПЕЧАТОК СТРУКТУРЫ =="
 psql -U postgres -d tms_test -At -F ' | ' -f "$DIR/tests/fingerprint.sql"

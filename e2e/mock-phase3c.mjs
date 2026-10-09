@@ -5,6 +5,8 @@ import { storeFor } from "./mock-phase3.mjs";
 export const UNIT_JOB = "dddddddd-dddd-4ddd-8ddd-000000000001";
 // Состояние Production: задание уже применено (COMMITTED), строка пропущена и осталась NEEDS_REVIEW/UNIT_UNKNOWN
 export const DONE_JOB = "dddddddd-dddd-4ddd-8ddd-000000000002";
+// Дозавершение (M26): применённое задание на 8 строк — 5 с неразрешённым подразделением, 3 уже применены ранее
+export const FINISH_JOB = "dddddddd-dddd-4ddd-8ddd-000000000003";
 const MANAGE = ["ADMIN", "ACADEMY_MANAGER", "HR"];
 const ok = (res, body, headers = {}) => { res.writeHead(200, { "content-type": "application/json", ...headers }); res.end(JSON.stringify(body)); return true; };
 const pgErr = (res, status, code, message) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify({ code, message })); return true; };
@@ -20,6 +22,7 @@ function st(store) {
       ],
       aliases: [], next: 100, nextRow: 1, bulkCalls: 0, reanalyzed: 0,
       doneRow: null,
+      fin: { unresolved: 5, ready: 0, create: 0, update: 0, created: 0, updated: 0, unchanged: 0, review: 0, errors: 0, applyCalls: 0, reasons: [], reanalyzeCalls: 0, limits: [] },
       row: { id: 501, row_no: 2, status: "NEEDS_REVIEW", messages: ["Отдел «Цех откорма» не найден"], review_code: "UNIT_UNKNOWN",
         data: { employee_code: "F-0009", full_name: "Тестов Тест Тестович", position: "Оператор", department_id: 1, department: "Финансовый департамент", unit: "Цех откорма" }, raw: {}, candidates: [], decision: null, decision_match: null, match_id: null },
     };
@@ -29,6 +32,8 @@ function st(store) {
 }
 const doneJob = (s) => ({ ...job(s), id: DONE_JOB, status: "COMMITTED", total_rows: 1, new_rows: s.doneRow.status === "NEW" ? 1 : 0, review_rows: s.doneRow.status === "NEEDS_REVIEW" ? 1 : 0,
   inserted: 0, updated: 0, skipped: 1, conflicts: s.doneRow.status === "NEEDS_REVIEW" ? 1 : 0, committed_at: "2026-10-09T11:00:00Z" });
+const finJob = (s) => ({ ...job(s), id: FINISH_JOB, status: "COMMITTED", total_rows: 8, new_rows: s.fin.create + s.fin.created, updated_rows: s.fin.update + s.fin.updated, review_rows: s.fin.unresolved,
+  inserted: 3 + s.fin.created, updated: s.fin.updated, skipped: 5, conflicts: s.fin.unresolved, committed_at: "2026-10-09T11:00:00Z" });
 const job = (s) => ({ id: UNIT_JOB, entity: "EMPLOYEES", source: "FILE", file_name: "employees.csv", file_hash: "x", mapping: {}, options: {}, status: "STAGED", total_rows: 1,
   new_rows: s.row.status === "NEW" ? 1 : 0, updated_rows: 0, unchanged_rows: 0, duplicate_rows: 0, review_rows: s.row.status === "NEEDS_REVIEW" ? 1 : 0, error_rows: 0,
   inserted: 0, updated: 0, skipped: 0, conflicts: 0, apply_errors: 0, created_at: "2026-10-09T10:00:00Z", created_by: null, committed_at: null, cancelled_at: null, reason: null });
@@ -50,9 +55,10 @@ export function handlePhase3c(req, res, url, body, role, sid) {
         return false;
       }
       case "org_unit_aliases": return sel === "org_unit_id,alias_norm" ? out(s.aliases) : false;
-      case "import_jobs": return idEq === `eq.${UNIT_JOB}` ? out(can ? [job(s)] : []) : idEq === `eq.${DONE_JOB}` ? out(can ? [doneJob(s)] : []) : false;
+      case "import_jobs": if (idEq === `eq.${FINISH_JOB}`) return out(can ? [finJob(s)] : []); return idEq === `eq.${UNIT_JOB}` ? out(can ? [job(s)] : []) : idEq === `eq.${DONE_JOB}` ? out(can ? [doneJob(s)] : []) : false;
       case "import_job_rows": {
         const jid = url.searchParams.get("job_id");
+        if (jid === `eq.${FINISH_JOB}`) return sel === "id" || url.searchParams.get("status") === "eq.NEEDS_REVIEW" ? ok(res, [], { "content-range": `*/${s.fin.unresolved}` }) : out([]);
         const rw = jid === `eq.${UNIT_JOB}` ? s.row : jid === `eq.${DONE_JOB}` ? s.doneRow : null;
         if (!rw) return false;
         if (url.searchParams.get("status") === "eq.NEEDS_REVIEW" || sel === "id") return ok(res, [], { "content-range": `*/${rw.status === "NEEDS_REVIEW" ? 1 : 0}` });
@@ -89,6 +95,30 @@ export function handlePhase3c(req, res, url, body, role, sid) {
         const a = norm(body.p_alias);
         if (!s.aliases.some((x) => x.alias_norm === a)) s.aliases.push({ org_unit_id: u.id, alias_norm: a });
         return ok(res, u.id);
+      }
+      case "import_resolved_preview": {
+        if (!can) return pgErr(res, 400, "P0015", "Импорт не найден");
+        const f = s.fin;
+        return ok(res, { job_status: "COMMITTED", total: 8, ready: f.ready, ready_create: f.create, ready_update: f.update, unresolved_units: f.unresolved, needs_decision: 0, skipped_by_decision: 0,
+          errors: f.errors, already_applied: 3, completed_now: f.created + f.updated, unchanged_after: f.unchanged,
+          unresolved_names: f.unresolved > 0 ? [{ kind: "DEPARTMENT", name: "Птицефабрика №2", rows: f.unresolved }] : [],
+          sample: f.ready > 0 ? [{ row_no: 2, full_name: "Тестов Тест", employee_code: "F-0010", verdict: "CREATE" }, { row_no: 3, full_name: "Образцов Олег", employee_code: "F-0011", verdict: "UPDATE" }] : [] });
+      }
+      case "import_reanalyze_job": {
+        if (!can) return pgErr(res, 400, "P0015", "Импорт не найден");
+        const f = s.fin; f.reanalyzeCalls++;
+        const resolved = Math.max(0, f.unresolved - 1); // одно подразделение так и не создано
+        f.unresolved -= resolved; f.create += resolved - 1; f.update += 1; f.ready += resolved;
+        return ok(res, { processed: resolved + (f.unresolved ? 1 : 0), resolved, unresolved: f.unresolved, errors: 0, first_error: null, next_after: 900, done: true, remaining: 0 });
+      }
+      case "import_apply_resolved_batch": {
+        if (!can) return pgErr(res, 400, "P0015", "Импорт не найден");
+        if (!String(body.p_reason ?? "").trim()) return pgErr(res, 400, "P0012", "Укажите причину изменения");
+        const f = s.fin; f.applyCalls++; f.reasons.push(body.p_reason); f.limits.push(body.p_limit);
+        const take = Math.min(2, f.ready); // пакеты по 2 строки — чтобы увидеть несколько шагов
+        const c = Math.min(take, f.create), u = take - c;
+        f.create -= c; f.update -= u; f.ready -= take; f.created += c; f.updated += u;
+        return ok(res, { processed: take, created: c, updated: u, unchanged: 0, needs_review: 0, errors: 0, next_after: 100 + f.applyCalls, remaining: f.ready, done: f.ready === 0 });
       }
       case "import_reanalyze_row": {
         if (!can) return pgErr(res, 400, "P0015", "Строка не найдена");
