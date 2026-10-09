@@ -69,6 +69,7 @@ export function handlePhase3b(req, res, url, body, role, sid) {
     const out = (list) => (wantsObject ? (list.length === 1 ? ok(res, list[0]) : pgErr(res, 406, "PGRST116", "The result contains 0 rows")) : ok(res, list, { "content-range": list.length ? `0-${list.length - 1}/${list.length}` : "*/0" }));
     switch (path) {
       case "import_sources": return out(canImport ? s.sources : []);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- _rows отбрасывается rest-деструктуризацией (внутреннее поле мока)
       case "import_jobs": { const id = eqv(url, "id"); return out(canImport ? s.jobs.filter((j) => !id || j.id === id).map(({ _rows, ...j }) => j) : []); }
       case "import_job_rows": return out([]);
       case "employees": {

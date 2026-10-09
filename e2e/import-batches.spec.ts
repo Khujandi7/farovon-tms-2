@@ -62,8 +62,10 @@ test.describe("импорт 2646 сотрудников пакетами", () =>
     await uploadAndAnalyze(page, 400);
     await page.request.get(`${MOCK}/__mock/phase3b/fail-next-batch?sid=${sid}&after=2`); // 2 пакета ок (120 + 150 строк), третий — таймаут
     await commitWithReason(page);
-    await expect(page.getByTestId("import-commit-dialog")).toContainText("Применение остановлено");
-    await expect(page.getByTestId("import-commit-dialog")).toContainText("повтор безопасен");
+    // Клиент сливает пакеты по HTTP в пределах бюджета (несколько RPC за вызов); под параллельной нагрузкой это дольше
+    // дефолтных 5 с. Ошибку проверяем ОДНИМ ожиданием (regex на обе фразы): сразу после показа ошибки run() делает
+    // router.refresh(), и карточка переключается на ветку COMMITTING, размонтируя диалог, — двум отдельным await не хватает окна.
+    await expect(page.getByTestId("import-commit-dialog")).toContainText(/Применение остановлено[\s\S]*повтор безопасен/, { timeout: 30_000 });
 
     await page.reload();
     await expect(page.getByTestId("import-job-status")).toHaveText("Применяется (не завершено)");

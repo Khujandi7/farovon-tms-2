@@ -188,7 +188,9 @@ select pg_temp.err_as('C', format($q$select import_cancel(%L, 'тест')$q$, pg
 create trigger zz_boom before insert on employees for each row execute function pg_temp.trg_boom();
 select pg_temp.ok(pg_temp.cancel_try(pg_temp.kid('bj')), 'B11 прерывание по времени посреди пакета доходит до вызывающего (57014)');
 select pg_temp.ok((select count(*) from import_job_rows where job_id = pg_temp.kid('bj')::uuid and processed_at is not null) = 101, 'B12 после таймаута ни одна строка пакета не отмечена (откат целиком)');
-select pg_temp.ok((select count(*) from employees where employee_code like 'B-%') = 99, 'B13 после таймаута создано ровно 99 сотрудников (первый пакет без строки с ошибкой)');
+-- Создано 100: первый пакет (B5) дал 99 (строка 10 с битым department_id → apply ERROR), пакет B7 добавил row 101.
+-- Прерванный по 57014 пакет (B11) откатился целиком, не оставив ни одной новой строки.
+select pg_temp.ok((select count(*) from employees where employee_code like 'B-%') = 100, 'B13 после прерывания создано 100 (99 из первого пакета + 1 из B7), прерванный пакет откатился');
 drop trigger zz_boom on employees;
 
 select pg_temp.ok(pg_temp.drain(pg_temp.kid('bj'), 100) >= 3, 'B14 оставшиеся пакеты применены');
