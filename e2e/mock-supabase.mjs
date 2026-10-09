@@ -202,6 +202,7 @@ export const createMockServer = () => http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith("/__google/") && handleGoogle(req, res, url)) return;
   if (url.pathname === "/__mock/phase3b") return send(res, 200, phase3bState(url.searchParams.get("sid")));
+  if (url.pathname === "/__mock/phase3b/fail-next-batch") { phase3bState(url.searchParams.get("sid")).failAfter = Number(url.searchParams.get("after") ?? 0); return send(res, 200, { ok: true }); }
   if (url.pathname === "/__mock/reset" || url.pathname === "/__mock/audit") return handlePhase3(req, res, url, body, null, null);
 
   // ---- PostgREST: всё ниже требует вошедшего пользователя ----

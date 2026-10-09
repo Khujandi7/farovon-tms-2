@@ -48,12 +48,15 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
     .order("row_no")
     .range((page - 1) * PAGE, page * PAGE - 1);
   if (status) rq = rq.eq("status", status);
-  const [{ data: rows, count }, unresolvedQ, dqQ, authorQ] = await Promise.all([
+  const [{ data: rows, count }, unresolvedQ, dqQ, authorQ, applyErrQ] = await Promise.all([
     rq,
     supabase.from("import_job_rows").select("id", { count: "exact", head: true }).eq("job_id", id).eq("status", "NEEDS_REVIEW").is("decision", null),
     supabase.from("dq_issues").select("id, message, rule_code, status").eq("entity_table", "import_jobs").eq("entity_id", id).in("status", ["OPEN", "IN_REVIEW"]).order("created_at").limit(20),
     job.created_by ? supabase.from("profiles").select("full_name").eq("id", job.created_by).maybeSingle() : Promise.resolve({ data: null }),
+    // строки, не применённые из-за ошибки при пакетном применении
+    supabase.from("import_job_rows").select("row_no, apply_error").eq("job_id", id).eq("apply_action", "ERROR").order("row_no").limit(20),
   ]);
+  const applyErrors = applyErrQ.data ?? [];
   const unresolved = unresolvedQ.count ?? 0;
   const dq = dqQ.data ?? [];
   const total = count ?? 0;
@@ -66,6 +69,8 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
     return t ? `?${t}` : "";
   };
   const staged = job.status === "STAGED";
+  const committing = job.status === "COMMITTING";
+  const processedRows = job.inserted + job.updated + job.skipped + job.apply_errors;
   const counts: Record<string, number> = { NEW: job.new_rows, UPDATED: job.updated_rows, UNCHANGED: job.unchanged_rows, DUPLICATE: job.duplicate_rows, NEEDS_REVIEW: job.review_rows, ERROR: job.error_rows };
   const views: JobRowView[] = (rows ?? []).map((r) => ({
     id: r.id, row_no: r.row_no, status: r.status, messages: r.messages ?? [], review_code: r.review_code,
@@ -82,7 +87,7 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
         breadcrumbs={crumbs}
         backHref="/imports"
         backLabel="К центру импорта"
-        actions={<Badge variant={job.status === "COMMITTED" ? "success" : staged ? "warning" : "outline"} data-testid="import-job-status">{JOB_STATUS_LABELS[job.status] ?? job.status}</Badge>}
+        actions={<Badge variant={job.status === "COMMITTED" ? "success" : staged || committing ? "warning" : "outline"} data-testid="import-job-status">{JOB_STATUS_LABELS[job.status] ?? job.status}</Badge>}
       />
       <ImportStepper current={staged ? "dry" : "commit"} />
 
@@ -96,8 +101,17 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
       </section>
       {job.status === "COMMITTED" && (
         <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm" data-testid="import-result">
-          Применено {job.committed_at ? dt.format(new Date(job.committed_at)) : ""}: добавлено {job.inserted}, обновлено {job.updated}, пропущено {job.skipped}, без решения {job.conflicts}.
+          Применено {job.committed_at ? dt.format(new Date(job.committed_at)) : ""}: добавлено {job.inserted}, обновлено {job.updated}, пропущено {job.skipped}, без решения {job.conflicts}{job.apply_errors ? `, с ошибкой ${job.apply_errors}` : ""}.
         </p>
+      )}
+      {applyErrors.length > 0 && (
+        <section aria-labelledby="imp-apply-err" className="space-y-2 rounded-xl border border-destructive/40 bg-card p-4" data-testid="import-apply-errors">
+          <h2 id="imp-apply-err" className="text-sm font-medium">Строки, не применённые из-за ошибки: {job.apply_errors}</h2>
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            {applyErrors.map((e) => (<li key={e.row_no}>Строка {e.row_no}: {e.apply_error}</li>))}
+            {job.apply_errors > applyErrors.length && <li>…и ещё {job.apply_errors - applyErrors.length}</li>}
+          </ul>
+        </section>
       )}
 
       {dq.length > 0 && (
@@ -113,8 +127,13 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
         </section>
       )}
 
-      {staged && canWork && <ImportJobActions jobId={id} unresolved={unresolved} totalApply={job.new_rows + job.updated_rows} />}
-      {staged && !canWork && <p className="text-sm text-muted-foreground">Ваша роль не может применять этот импорт.</p>}
+      {(staged || committing) && canWork && (
+        <ImportJobActions key={job.status} jobId={id} unresolved={unresolved} totalApply={job.new_rows + job.updated_rows} status={job.status} processed={processedRows} total={job.total_rows} />
+      )}
+      {(staged || committing) && !canWork && <p className="text-sm text-muted-foreground">Ваша роль не может применять этот импорт.</p>}
+      {job.status === "STAGING" && (
+        <p className="rounded-lg border px-3 py-2 text-sm text-muted-foreground" data-testid="import-staging-note">Загрузка строк не завершена. Данные справочников не изменены — запустите импорт файла ещё раз.</p>
+      )}
 
       <section aria-labelledby="imp-rows" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

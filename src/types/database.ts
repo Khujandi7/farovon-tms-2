@@ -1634,16 +1634,20 @@ export type Database = {
       import_job_rows: {
         Row: {
           applied_id: string | null
+          apply_action: string | null
+          apply_error: string | null
           candidates: Json | null
           data: NonNullable<Json>
           decided_at: string | null
           decided_by: string | null
           decision: string | null
           decision_match: string | null
+          dup_key: string | null
           id: number
           job_id: string
           match_id: string | null
           messages: string[]
+          processed_at: string | null
           raw: NonNullable<Json>
           review_code: string | null
           row_no: number
@@ -1652,16 +1656,20 @@ export type Database = {
         ComputedFields: never
         Insert: {
           applied_id?: string | null
+          apply_action?: string | null
+          apply_error?: string | null
           candidates?: Json | null
           data?: NonNullable<Json>
           decided_at?: string | null
           decided_by?: string | null
           decision?: string | null
           decision_match?: string | null
+          dup_key?: string | null
           id?: never
           job_id: string
           match_id?: string | null
           messages?: string[]
+          processed_at?: string | null
           raw: NonNullable<Json>
           review_code?: string | null
           row_no: number
@@ -1669,16 +1677,20 @@ export type Database = {
         }
         Update: {
           applied_id?: string | null
+          apply_action?: string | null
+          apply_error?: string | null
           candidates?: Json | null
           data?: NonNullable<Json>
           decided_at?: string | null
           decided_by?: string | null
           decision?: string | null
           decision_match?: string | null
+          dup_key?: string | null
           id?: never
           job_id?: string
           match_id?: string | null
           messages?: string[]
+          processed_at?: string | null
           raw?: NonNullable<Json>
           review_code?: string | null
           row_no?: number
@@ -1703,6 +1715,7 @@ export type Database = {
       }
       import_jobs: {
         Row: {
+          apply_errors: number
           committed_at: string | null
           committed_by: string | null
           conflicts: number
@@ -1730,6 +1743,7 @@ export type Database = {
         }
         ComputedFields: never
         Insert: {
+          apply_errors?: number
           committed_at?: string | null
           committed_by?: string | null
           conflicts?: number
@@ -1756,6 +1770,7 @@ export type Database = {
           updated_rows?: number
         }
         Update: {
+          apply_errors?: number
           committed_at?: string | null
           committed_by?: string | null
           conflicts?: number
@@ -3756,6 +3771,10 @@ export type Database = {
         Args: { p_entity: string; p_in: Json; p_options: Json }
         Returns: Json
       }
+      import_analyze_row_fast: {
+        Args: { p_entity: string; p_in: Json; p_options: Json }
+        Returns: Json
+      }
       import_bool: { Args: { p: string }; Returns: boolean }
       import_cancel: {
         Args: { p_job: string; p_reason: string }
@@ -3763,6 +3782,10 @@ export type Database = {
       }
       import_commit: {
         Args: { p_job: string; p_reason?: string }
+        Returns: Json
+      }
+      import_commit_batch: {
+        Args: { p_job: string; p_limit?: number; p_reason?: string }
         Returns: Json
       }
       import_dq_sync: {
@@ -3789,6 +3812,10 @@ export type Database = {
         Args: { p_decision: string; p_match?: string; p_row: number }
         Returns: undefined
       }
+      import_row_key: {
+        Args: { p_analyzed: Json; p_data: Json; p_entity: string }
+        Returns: string
+      }
       import_stage: {
         Args: {
           p_entity: string
@@ -3801,6 +3828,25 @@ export type Database = {
         }
         Returns: string
       }
+      import_stage_abort: { Args: { p_job: string }; Returns: string }
+      import_stage_append: {
+        Args: { p_job: string; p_rows: Json }
+        Returns: Json
+      }
+      import_stage_begin: {
+        Args: {
+          p_entity: string
+          p_file_hash: string
+          p_file_name: string
+          p_mapping: Json
+          p_options: Json
+          p_source: string
+          p_token: string
+          p_total: number
+        }
+        Returns: string
+      }
+      import_stage_finish: { Args: { p_job: string }; Returns: string }
       is_long_program: { Args: { p_training: string }; Returns: boolean }
       kpi_year: {
         Args: { p_year: number }

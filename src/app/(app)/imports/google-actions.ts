@@ -14,12 +14,17 @@ import { buildStageRows } from "@/lib/imports/build";
 import { missingRequired, type ColumnMapping } from "@/lib/imports/mapping";
 import { MAX_ROWS } from "@/lib/imports/table";
 import { sha256Hex } from "@/lib/imports/hash";
-import type { ParsedTable } from "@/lib/imports/types";
+import { isCommitDone } from "@/lib/imports/batch";
 import type { Json } from "@/types/database";
+import { commitBatchesWithinBudget, stageAllOnServer } from "@/lib/imports/stage.server";
+
+/** Бюджет применения внутри «Синхронизировать сейчас»; не уложились — задание остаётся «Применяется», продолжение на странице импорта. */
+const SYNC_COMMIT_BUDGET_MS = 20_000;
+import type { ParsedTable } from "@/lib/imports/types";
 
 /**
  * Google Sheets → справочник сотрудников (Phase 3B). Таблица читается ТОЛЬКО на сервере сервисным аккаунтом;
- * дальше — общий конвейер импорта: import_stage (dry run) → решения → import_commit. Синхронизация идемпотентна:
+ * дальше — общий конвейер импорта: пакетная загрузка (dry run) → решения → пакетное применение. Синхронизация идемпотентна:
  * сопоставление по табельному номеру → точному ФИО → алиасам, неоднозначное — на ручную проверку.
  */
 const urlSchema = z.object({ url: z.string().trim().min(1).max(500) });
@@ -107,8 +112,8 @@ export async function saveGoogleSource(input: unknown): Promise<Result<{ id: str
 export type SyncOutcome = { jobId: string | null; status: string; stats: Record<string, number> };
 
 /**
- * «Синхронизировать сейчас»: чтение листа → dry run (import_stage) → если ничего не требует решения человека — применение
- * (import_commit) → итог и сверка «кого нет в таблице» (record_source_sync). Если есть строки на проверку — остановка:
+ * «Синхронизировать сейчас»: чтение листа → dry run (пакетная загрузка) → если ничего не требует решения человека — пакетное
+ * применение → итог и сверка «кого нет в таблице» (record_source_sync). Если есть строки на проверку — остановка:
  * решения принимаются на странице импорта, применение там же. Ничего не удаляется.
  */
 export async function syncGoogleSource(input: unknown): Promise<Result<SyncOutcome>> {
@@ -133,31 +138,41 @@ export async function syncGoogleSource(input: unknown): Promise<Result<SyncOutco
   if (missing.length) return failSync(`В листе нет колонок для: ${missing.join(", ")}${lost.length ? ` (не найдены «${lost.join("», «")}»)` : ""}. Обновите соответствие колонок.`);
   const built = buildStageRows(table, mapping, "EMPLOYEES");
   if (built.rows.length === 0) return failSync("В листе нет строк с данными.");
-  const staged = await callRpc("import_stage", {
-    p_entity: "EMPLOYEES", p_source: "GSHEET", p_file_name: table.fileName, p_file_hash: table.fileHash,
-    p_mapping: mapping as unknown as Json, p_options: { source_id: src.id } as unknown as Json, p_rows: built.rows as unknown as Json,
-  });
+  // Пакетная загрузка и применение (как в мастере): части по ≤ 300 строк, пакеты применения по 120 — каждый вызов БД короткий.
+  const staged = await stageAllOnServer(
+    { entity: "EMPLOYEES", source: "GSHEET", fileName: table.fileName, fileHash: table.fileHash, mapping, options: { source_id: src.id }, token: crypto.randomUUID() },
+    built.rows,
+  );
   if (!staged.ok) return failSync(staged.error);
-  const jobId = staged.data as string;
+  const jobId = staged.data;
   const first = await callRpc("record_source_sync", { p_source: src.id, p_job: jobId });
   if (!first.ok) return first;
   const firstStats = (first.data ?? {}) as Record<string, number | string>;
   let outcome = firstStats;
+  let pending = false;
   if (firstStats.status !== "NEEDS_REVIEW") {
-    const commit = await callRpc("import_commit", { p_job: jobId, p_reason: `Синхронизация Google Sheets: ${src.name}` });
-    if (!commit.ok) return failSync(commit.error);
-    const done = await callRpc("record_source_sync", { p_source: src.id, p_job: jobId });
-    if (!done.ok) return done;
-    outcome = (done.data ?? {}) as Record<string, number | string>;
+    const commit = await commitBatchesWithinBudget(jobId, `Синхронизация Google Sheets: ${src.name}`, SYNC_COMMIT_BUDGET_MS);
+    if (!commit.ok) {
+      revalidatePath(`/imports/${jobId}`);
+      return fail(`Синхронизация остановлена при применении: ${commit.error} Уже применённые строки сохранены — откройте импорт и нажмите «Продолжить применение».`);
+    }
+    if (isCommitDone(commit.progress)) {
+      const done = await callRpc("record_source_sync", { p_source: src.id, p_job: jobId });
+      if (!done.ok) return done;
+      outcome = (done.data ?? {}) as Record<string, number | string>;
+    } else {
+      pending = true; // итог источника запишется, когда применение будет завершено на странице импорта
+    }
   }
   revalidatePath("/employees/import");
   revalidatePath("/employees");
   revalidatePath("/data-quality");
   revalidatePath(`/imports/${jobId}`);
   const stats = Object.fromEntries(Object.entries(outcome).filter(([, v]) => typeof v === "number")) as Record<string, number>;
-  const status = String(outcome.status ?? "");
-  const message =
-    status === "NEEDS_REVIEW"
+  const status = pending ? "COMMITTING" : String(outcome.status ?? "");
+  const message = pending
+    ? "Применение большой таблицы продолжается: откройте импорт и нажмите «Продолжить применение» — уже применённые строки не повторяются."
+    : status === "NEEDS_REVIEW"
       ? `Нужна проверка: ${stats.review ?? 0} строк. Откройте импорт, примите решения и примените.`
       : `Синхронизировано: добавлено ${stats.created ?? 0}, обновлено ${stats.updated ?? 0}, без изменений ${stats.unchanged ?? 0}${stats.missing ? `, нет в таблице ${stats.missing}` : ""}.`;
   return { ok: true, message, data: { jobId, status, stats } };

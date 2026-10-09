@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Импорт" };
 export const dynamic = "force-dynamic";
 
 const dt = new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Dushanbe" });
-const statusVariant = (s: string) => (s === "COMMITTED" ? "success" : s === "STAGED" ? "warning" : "outline") as "success" | "warning" | "outline";
+const statusVariant = (s: string) => (s === "COMMITTED" ? "success" : s === "STAGED" || s === "COMMITTING" ? "warning" : "outline") as "success" | "warning" | "outline";
 
 export default async function ImportsPage() {
   return (

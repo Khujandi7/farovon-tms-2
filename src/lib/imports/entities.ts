@@ -136,5 +136,5 @@ export const ENTITY_LABELS: Record<ImportEntity, string> = Object.fromEntries(IM
 export const ROW_STATUS_LABELS: Record<string, string> = {
   NEW: "Новая", UPDATED: "Обновление", UNCHANGED: "Без изменений", DUPLICATE: "Дубль", NEEDS_REVIEW: "Требует решения", ERROR: "Ошибка",
 };
-export const JOB_STATUS_LABELS: Record<string, string> = { STAGED: "Ожидает применения", COMMITTED: "Применён", CANCELLED: "Отменён", FAILED: "Ошибка" };
+export const JOB_STATUS_LABELS: Record<string, string> = { STAGING: "Загрузка не завершена", STAGED: "Ожидает применения", COMMITTING: "Применяется (не завершено)", COMMITTED: "Применён", CANCELLED: "Отменён", FAILED: "Ошибка" };
 export const SOURCE_LABELS: Record<string, string> = { XLSX: "Excel", CSV: "CSV", PASTE: "Вставка", GSHEET: "Google Sheets" };

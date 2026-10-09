@@ -5,10 +5,12 @@ import { z } from "zod";
 import { callRpc, fail, requireRole, type Result } from "@/lib/workflows/server";
 import { WF_ROLES } from "@/lib/workflows/roles";
 import { WF_ERR } from "@/lib/workflows/errors";
-import { reason, uuid } from "@/lib/workflows/schemas";
+import { optReason, reason, uuid } from "@/lib/workflows/schemas";
 import { canImportEntity, IMPORT_ENTITIES } from "@/lib/imports/entities";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
+import { COMMIT_BATCH_MAX, COMMIT_BATCH_MIN, STAGE_CHUNK_ROWS, isCommitDone, type CommitProgress } from "@/lib/imports/batch";
+import { commitBatchesWithinBudget, stageAppend, stageBegin, stageFinish } from "@/lib/imports/stage.server";
 
 const refresh = (jobId?: string) => {
   revalidatePath("/imports");
@@ -63,6 +65,122 @@ export async function stageImport(input: unknown): Promise<Result<{ jobId: strin
   if (v.sourceId) await callRpc("record_source_sync", { p_source: v.sourceId, p_job: res.data });
   refresh(res.data);
   return { ok: true, message: "Файл проанализирован. Проверьте результат перед применением.", data: { jobId: res.data } };
+}
+
+// ---------- Пакетная загрузка (HOTFIX 413): begin → части → finish. Тело каждого вызова — одна часть, а не весь файл. ----------
+
+const beginSchema = z.object({
+  entity: z.enum(IMPORT_ENTITIES),
+  source: z.enum(["XLSX", "CSV", "PASTE", "GSHEET"]),
+  fileName: z.string().trim().min(1).max(200),
+  fileHash: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
+  mapping: z.record(z.string().max(40), z.number().int().min(0).max(200).nullable()),
+  trainingId: uuid.nullish(),
+  sourceId: uuid.nullish(),
+  total: z.number().int().min(1, { message: "В файле нет строк" }).max(5000, { message: "Не больше 5000 строк за раз" }),
+  /** Идентификатор загрузки из браузера: повтор begin (сетевой сбой, двойной клик) возвращает то же задание. */
+  token: uuid,
+});
+
+/** Шаг 1: создать задание (статус «загрузка»). Справочники не меняются. */
+export async function beginImportStage(input: unknown): Promise<Result<{ jobId: string }>> {
+  const actor = await requireRole(WF_ROLES.importAny);
+  if (!actor.ok) return actor;
+  const p = beginSchema.safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid);
+  const v = p.data;
+  if (!canImportEntity(actor.role, v.entity)) return fail(WF_ERR.forbidden);
+  if (v.entity === "PARTICIPANTS" && !v.trainingId) return fail("Выберите мероприятие, в которое импортируются участники.");
+  if (v.sourceId && v.entity !== "EMPLOYEES") return fail(WF_ERR.invalid);
+  const options: Record<string, string> = {};
+  if (v.entity === "PARTICIPANTS" && v.trainingId) options.training_id = v.trainingId;
+  if (v.sourceId) options.source_id = v.sourceId;
+  const res = await stageBegin({ entity: v.entity, source: v.source, fileName: v.fileName, fileHash: v.fileHash ?? null, mapping: v.mapping, options, total: v.total, token: v.token });
+  return res.ok ? { ok: true, data: { jobId: res.data } } : res;
+}
+
+const appendSchema = z.object({
+  jobId: uuid,
+  rows: z.array(rowSchema).min(1).max(STAGE_CHUNK_ROWS, { message: `Не больше ${STAGE_CHUNK_ROWS} строк в одной части` }),
+});
+
+/** Шаг 2: одна часть строк. Повтор той же части безопасен: уже принятые строки пропускаются. */
+export async function appendImportRows(input: unknown): Promise<Result<{ received: number; expected: number }>> {
+  const actor = await requireRole(WF_ROLES.importAny);
+  if (!actor.ok) return actor;
+  const p = appendSchema.safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid);
+  return stageAppend(p.data.jobId, p.data.rows);
+}
+
+/** Шаг 3: все части получены — повторы в файле, замечания DQ, итоги; задание становится «ожидает применения». */
+export async function finishImportStage(input: unknown): Promise<Result<{ jobId: string }>> {
+  const actor = await requireRole(WF_ROLES.importAny);
+  if (!actor.ok) return actor;
+  const id = uuid.safeParse((input as { jobId?: unknown })?.jobId);
+  if (!id.success) return fail(WF_ERR.notFound);
+  const res = await stageFinish(id.data);
+  if (!res.ok) return res;
+  await finishSourceSync(id.data);
+  refresh(id.data);
+  return { ok: true, message: "Файл проанализирован. Проверьте результат перед применением.", data: { jobId: id.data } };
+}
+
+/** Прерванная загрузка: задание отменяется, справочники не затронуты. */
+export async function abortImportStage(input: unknown): Promise<Result> {
+  const actor = await requireRole(WF_ROLES.importAny);
+  if (!actor.ok) return actor;
+  const id = uuid.safeParse((input as { jobId?: unknown })?.jobId);
+  if (!id.success) return fail(WF_ERR.notFound);
+  const res = await callRpc("import_stage_abort", { p_job: id.data });
+  if (!res.ok) return res;
+  refresh(id.data);
+  return { ok: true, data: undefined };
+}
+
+// ---------- Пакетное применение (сотрудники): каждый вызов — несколько пакетов в пределах бюджета времени ----------
+
+export type CommitStep = CommitProgress & { done: boolean };
+
+/**
+ * Применение импорта. Сотрудники — пакетами import_commit_batch: вызов возвращает прогресс, клиент повторяет до done.
+ * Остальные сущности — прежним import_commit одной транзакцией. Причина нужна только для первого пакета (задание STAGED).
+ */
+export async function commitImportStep(input: { jobId: string; reason?: string | null; limit?: number | null }): Promise<Result<CommitStep>> {
+  const actor = await requireRole(WF_ROLES.importAny);
+  if (!actor.ok) return actor;
+  const id = uuid.safeParse(input?.jobId);
+  if (!id.success) return fail(WF_ERR.notFound);
+  const supabase = await createClient();
+  const { data: job } = await supabase.from("import_jobs").select("entity, status").eq("id", id.data).maybeSingle();
+  if (!job) return fail(WF_ERR.notFound);
+  const needsReason = job.status === "STAGED";
+  const r = needsReason ? reason.safeParse(input.reason) : optReason.safeParse(input.reason);
+  if (!r.success) return fail(r.error.issues[0]?.message ?? WF_ERR.reason);
+
+  if (job.entity !== "EMPLOYEES") {
+    const res = await commitImport({ jobId: id.data, reason: r.data });
+    if (!res.ok) return res;
+    return { ok: true, message: res.message, data: { status: "COMMITTED", remaining: 0, total: 0, inserted: res.data.inserted, updated: res.data.updated, skipped: res.data.skipped, apply_errors: 0, batches: 1, limit: 0, done: true } };
+  }
+
+  // размер пакета с прошлого шага (адаптивный), в допустимых границах; иначе — стартовый
+  const lim = Number.isInteger(input.limit) ? Math.min(COMMIT_BATCH_MAX, Math.max(COMMIT_BATCH_MIN, Number(input.limit))) : undefined;
+  const run = await commitBatchesWithinBudget(id.data, r.data ?? null, undefined, lim);
+  refresh(id.data);
+  if (!run.ok) {
+    return fail(`Применение остановлено: ${run.error} Уже применённые строки сохранены; нажмите «Продолжить» — повтор безопасен.`);
+  }
+  const done = isCommitDone(run.progress);
+  if (done) {
+    await finishSourceSync(id.data);
+    revalidatePath("/employees");
+  }
+  const pr = run.progress;
+  const message = done
+    ? `Импорт применён: добавлено ${pr.inserted}, обновлено ${pr.updated}, пропущено ${pr.skipped}${pr.apply_errors ? `, с ошибкой ${pr.apply_errors}` : ""}.`
+    : `Применено ${pr.total - pr.remaining} из ${pr.total} строк…`;
+  return { ok: true, message, data: { ...pr, done } };
 }
 
 const resolveSchema = z.object({

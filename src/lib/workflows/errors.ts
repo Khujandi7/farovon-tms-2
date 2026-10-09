@@ -21,6 +21,7 @@ export function workflowErrorMessage(error: ErrorLike): string {
   const code = error.code ?? "";
   const message = (error.message ?? "").trim();
   if (code === "P0012") return WF_ERR.reason;
+  if (code === "57014") return "Операция прервана по ограничению времени. Изменения этого шага отменены — повторите.";
   if (/^P00\d\d$/.test(code) && message) return message;
   if (code === "42501" || /row-level security|permission denied/i.test(message)) return WF_ERR.forbidden;
   if (code === "23505") return WF_ERR.duplicate;

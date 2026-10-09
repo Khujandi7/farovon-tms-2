@@ -12,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormAlert } from "@/components/auth/form-parts";
 import { useToast } from "@/components/workflow/toast";
-import { stageImport } from "@/app/(app)/imports/actions";
+import { abortImportStage, appendImportRows, beginImportStage, finishImportStage } from "@/app/(app)/imports/actions";
+import { chunkStageRows, safeAction } from "@/lib/imports/batch";
 import { saveGoogleSource } from "@/app/(app)/imports/google-actions";
 import { ENTITY_DEFS, type ImportEntity } from "@/lib/imports/entities";
 import { autoMap, missingRequired, type ColumnMapping } from "@/lib/imports/mapping";
@@ -46,6 +47,8 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   const [pending, startTransition] = useTransition();
+  /** Прогресс пакетной загрузки строк: отправлено / всего. */
+  const [upload, setUpload] = useState<{ sent: number; total: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [sheet, setSheet] = useState<GoogleSheetMeta | null>(null);
   const [saveSource, setSaveSource] = useState(true);
@@ -101,7 +104,12 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
         if (!saved.ok) return setError(saved.error);
         sourceId = saved.data.id;
       }
-      const r = await stageImport({
+      // Строки уходят частями: каждая часть — отдельный запрос заметно меньше лимита Server Actions (1 МБ).
+      const split = chunkStageRows(built.rows);
+      if (!split.ok) return setError(split.error);
+      const total = built.rows.length;
+      const begin = await safeAction(() => beginImportStage({
+        token: crypto.randomUUID(),
         sourceId,
         entity,
         source: table.source,
@@ -109,12 +117,30 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
         fileHash: table.fileHash || null,
         mapping,
         trainingId: entity === "PARTICIPANTS" ? trainingId : null,
-        rows: built.rows,
-      });
-      if (r.ok) {
-        notify(true, r.message ?? "Готово.");
-        router.push(`/imports/${r.data.jobId}`);
-      } else setError(r.error);
+        total,
+      }));
+      if (!begin.ok) return setError(begin.error);
+      const jobId = begin.data.jobId;
+      setUpload({ sent: 0, total });
+      let sent = 0;
+      for (const part of split.chunks) {
+        // повтор части безопасен: строки, уже принятые сервером, пропускаются
+        let r = await safeAction(() => appendImportRows({ jobId, rows: part }));
+        if (!r.ok) r = await safeAction(() => appendImportRows({ jobId, rows: part }));
+        if (!r.ok) {
+          await safeAction(() => abortImportStage({ jobId }));
+          setUpload(null);
+          return setError(`Загрузка прервана на строках ${sent + 1}–${sent + part.length}: ${r.error} Данные справочников не изменены — запустите анализ ещё раз.`);
+        }
+        sent += part.length;
+        setUpload({ sent, total });
+      }
+      const fin = await safeAction(() => finishImportStage({ jobId }));
+      setUpload(null);
+      if (fin.ok) {
+        notify(true, fin.message ?? "Готово.");
+        router.push(`/imports/${jobId}`);
+      } else setError(fin.error);
     });
   }
 
@@ -251,6 +277,7 @@ export function ImportWizard({ entities, initialEntity, trainings = [], initialT
             <Badge variant={validation.badRows ? "warning" : "success"}>С замечаниями: {validation.badRows}</Badge>
           </div>
           {built.tooMany && <FormAlert error="Не больше 5000 строк за раз. Разбейте файл на части." />}
+          {upload && <p className="text-sm text-muted-foreground" role="status" aria-live="polite" data-testid="import-upload-progress">Отправлено строк: {upload.sent} из {upload.total}</p>}
           {validation.issues.length > 0 && (
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Такие строки получат статус «Ошибка» и не будут применены. Исправьте файл или продолжайте: остальные строки загрузятся.</p>

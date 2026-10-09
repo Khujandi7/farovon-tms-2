@@ -69,7 +69,8 @@ export function handlePhase3b(req, res, url, body, role, sid) {
     const out = (list) => (wantsObject ? (list.length === 1 ? ok(res, list[0]) : pgErr(res, 406, "PGRST116", "The result contains 0 rows")) : ok(res, list, { "content-range": list.length ? `0-${list.length - 1}/${list.length}` : "*/0" }));
     switch (path) {
       case "import_sources": return out(canImport ? s.sources : []);
-      case "import_jobs": { const id = eqv(url, "id"); return out(canImport ? s.jobs.filter((j) => !id || j.id === id) : []); }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- _rows отбрасывается rest-деструктуризацией (внутреннее поле мока)
+      case "import_jobs": { const id = eqv(url, "id"); return out(canImport ? s.jobs.filter((j) => !id || j.id === id).map(({ _rows, ...j }) => j) : []); }
       case "import_job_rows": return out([]);
       case "employees": {
         const sel = (url.searchParams.get("select") ?? "").replace(/\s+/g, "");
@@ -117,6 +118,71 @@ export function handlePhase3b(req, res, url, body, role, sid) {
         if (!j) return pgErr(res, 400, "P0015", "Импорт не найден");
         j.status = "COMMITTED"; j.inserted = j.new_rows; j.skipped = j.unchanged_rows;
         return ok(res, { inserted: j.inserted, updated: 0, skipped: j.skipped, conflicts: 0 });
+      }
+      // ---- HOTFIX 413: пакетная загрузка и пакетное применение (имитация M23) ----
+      case "import_stage_begin": {
+        if (!canImport) return denied();
+        const ex = s.jobs.find((x) => x.options?.client_token === body.p_token);
+        if (ex) return ok(res, ex.id); // повтор begin с тем же токеном
+        if (!(body.p_total >= 1 && body.p_total <= 5000)) return pgErr(res, 400, "P0015", "Не больше 5000 строк за раз");
+        const id = uid(2000 + s.nextJob++);
+        s.jobs.push({ id, entity: body.p_entity, source: body.p_source, file_name: body.p_file_name, file_hash: body.p_file_hash, mapping: body.p_mapping, options: { ...(body.p_options ?? {}), client_token: body.p_token, expected_rows: body.p_total }, status: "STAGING", total_rows: 0, new_rows: 0, updated_rows: 0, unchanged_rows: 0, duplicate_rows: 0, review_rows: 0, error_rows: 0, inserted: 0, updated: 0, skipped: 0, conflicts: 0, apply_errors: 0, created_at: "2026-10-09T10:00:00Z", created_by: null, committed_at: null, cancelled_at: null, reason: null, _rows: [] });
+        return ok(res, id);
+      }
+      case "import_stage_append": {
+        if (!canImport) return denied();
+        const j = s.jobs.find((x) => x.id === body.p_job);
+        if (!j || j.status !== "STAGING") return pgErr(res, 400, "P0015", "Загрузка этого импорта уже завершена");
+        const rows = Array.isArray(body.p_rows) ? body.p_rows : [];
+        if (rows.length > 1000) return pgErr(res, 400, "P0015", "Не больше 1000 строк в одной части");
+        s.appendCalls = (s.appendCalls ?? 0) + 1;
+        let added = 0, skipped = 0;
+        for (const r of rows) {
+          if (j._rows.some((x) => x.row_no === r.row_no)) { skipped++; continue; }
+          j._rows.push({ row_no: r.row_no, code: String(r.data?.employee_code ?? ""), processed: false });
+          added++;
+        }
+        return ok(res, { added, skipped, received: j._rows.length, expected: j.options.expected_rows });
+      }
+      case "import_stage_finish": {
+        if (!canImport) return denied();
+        const j = s.jobs.find((x) => x.id === body.p_job);
+        if (!j) return pgErr(res, 400, "P0015", "Импорт не найден");
+        if (j.status !== "STAGING") return ok(res, j.id);
+        if (j._rows.length !== j.options.expected_rows) return pgErr(res, 400, "P0015", `Загружено ${j._rows.length} из ${j.options.expected_rows} строк — повторите загрузку`);
+        const known = new Set(PICK_EMPLOYEES.map((e) => e.employee_code));
+        j.unchanged_rows = j._rows.filter((r) => known.has(r.code)).length;
+        j.total_rows = j._rows.length; j.new_rows = j.total_rows - j.unchanged_rows; j.status = "STAGED";
+        return ok(res, j.id);
+      }
+      case "import_stage_abort": {
+        const j = s.jobs.find((x) => x.id === body.p_job);
+        if (j && j.status === "STAGING") j.status = "CANCELLED";
+        return ok(res, j?.status ?? "CANCELLED");
+      }
+      case "import_commit_batch": {
+        if (!canImport) return denied();
+        const j = s.jobs.find((x) => x.id === body.p_job);
+        if (!j) return pgErr(res, 400, "P0015", "Импорт не найден");
+        // инъекция сбоя: после N успешных пакетов один пакет падает по таймауту (в БД такой пакет откатывается целиком)
+        if (s.failAfter != null) {
+          if (s.failAfter === 0) { s.failAfter = null; return pgErr(res, 500, "57014", "canceling statement due to statement timeout"); }
+          s.failAfter--;
+        }
+        if (j.status === "STAGED") {
+          if (!String(body.p_reason ?? "").trim()) return pgErr(res, 400, "P0015", "Укажите причину применения");
+          j.status = "COMMITTING";
+        } else if (j.status !== "COMMITTING" && j.status !== "COMMITTED") return pgErr(res, 400, "P0015", "Импорт уже выполнен или отменён");
+        s.batchCalls = (s.batchCalls ?? 0) + 1;
+        if (j.status === "COMMITTING") {
+          const known = new Set(PICK_EMPLOYEES.map((e) => e.employee_code));
+          for (const r of j._rows.filter((x) => !x.processed).slice(0, body.p_limit)) { r.processed = true; r.action = known.has(r.code) ? "SKIPPED" : "CREATED"; }
+          if (j._rows.every((x) => x.processed)) { j.status = "COMMITTED"; j.committed_at = "2026-10-09T10:05:00Z"; }
+        }
+        j.inserted = j._rows.filter((x) => x.action === "CREATED").length;
+        j.skipped = j._rows.filter((x) => x.action === "SKIPPED").length;
+        const remaining = j._rows.filter((x) => !x.processed).length;
+        return ok(res, { status: j.status, processed_now: 0, remaining, total: j._rows.length, inserted: j.inserted, updated: 0, skipped: j.skipped, apply_errors: 0 });
       }
       case "record_source_sync": {
         if (!canImport) return denied();

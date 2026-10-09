@@ -58,30 +58,64 @@ describe("Google Sheets: действия импорта", () => {
     expect(r.data.table.rows.map((x) => x.rowNo)).toEqual([4, 5]);
   });
 
-  it("Sync now без строк на проверку: dry run → применение → итог; строки собраны на сервере", async () => {
+  const JOB = "22222222-2222-4222-8222-222222222222";
+  /** Ответы пакетного конвейера (M23): begin → append → finish → import_commit_batch. */
+  const pipeline = (name: string, commit: () => unknown) => {
+    if (name === "import_stage_begin" || name === "import_stage_finish") return { data: JOB, error: null };
+    if (name === "import_stage_append") return { data: { received: 2, expected: 2 }, error: null };
+    if (name === "import_commit_batch") return { data: commit(), error: null };
+    return null;
+  };
+
+  it("Sync now без строк на проверку: пакетный dry run → пакетное применение → итог; строки собраны на сервере", async () => {
     rpc.mockImplementation(async (name: string) => {
-      if (name === "import_stage") return { data: "22222222-2222-4222-8222-222222222222", error: null };
-      if (name === "record_source_sync") return { data: { status: rpc.mock.calls.some((c) => c[0] === "import_commit") ? "SUCCESS" : "STAGED", created: 2, updated: 0, unchanged: 0, missing: 0 }, error: null };
-      if (name === "import_commit") return { data: { inserted: 2 }, error: null };
+      const p = pipeline(name, () => ({ status: "COMMITTED", remaining: 0, total: 2, inserted: 2, updated: 0, skipped: 0, apply_errors: 0 }));
+      if (p) return p;
+      if (name === "record_source_sync") return { data: { status: rpc.mock.calls.some((c) => c[0] === "import_commit_batch") ? "SUCCESS" : "STAGED", created: 2, updated: 0, unchanged: 0, missing: 0 }, error: null };
       return { data: null, error: null };
     });
     const r = await syncGoogleSource({ id: sourceRow.id });
     expect(r).toMatchObject({ ok: true, data: { status: "SUCCESS", stats: { created: 2 } } });
-    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["import_stage", "record_source_sync", "import_commit", "record_source_sync"]);
-    const stage = rpc.mock.calls[0]![1];
-    expect(stage).toMatchObject({ p_entity: "EMPLOYEES", p_source: "GSHEET", p_options: { source_id: sourceRow.id } });
-    expect(stage.p_rows[0]).toMatchObject({ row_no: 4, data: { full_name: "Алиев Рустам", employee_code: "T-1" } });
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["import_stage_begin", "import_stage_append", "import_stage_finish", "record_source_sync", "import_commit_batch", "record_source_sync"]);
+    expect(rpc.mock.calls[0]![1]).toMatchObject({ p_entity: "EMPLOYEES", p_source: "GSHEET", p_options: { source_id: sourceRow.id }, p_total: 2 });
+    expect(rpc.mock.calls[1]![1].p_rows[0]).toMatchObject({ row_no: 4, data: { full_name: "Алиев Рустам", employee_code: "T-1" } });
+    expect(rpc.mock.calls[4]![1]).toMatchObject({ p_job: JOB, p_limit: 120, p_reason: expect.stringContaining("Синхронизация Google Sheets") });
   });
 
   it("Sync now со строками на проверку: не применяет, ведёт к решениям", async () => {
     rpc.mockImplementation(async (name: string) => {
-      if (name === "import_stage") return { data: "22222222-2222-4222-8222-222222222222", error: null };
+      const p = pipeline(name, () => ({}));
+      if (p) return p;
       if (name === "record_source_sync") return { data: { status: "NEEDS_REVIEW", review: 1 }, error: null };
       return { data: null, error: null };
     });
     const r = await syncGoogleSource({ id: sourceRow.id });
     expect(r).toMatchObject({ ok: true, data: { status: "NEEDS_REVIEW" } });
-    expect(rpc.mock.calls.map((c) => c[0])).not.toContain("import_commit");
+    expect(rpc.mock.calls.map((c) => c[0])).not.toContain("import_commit_batch");
+  });
+
+  it("большая таблица не уложилась в бюджет: импорт не объявлен завершённым, итог источника не записан", async () => {
+    rpc.mockImplementation(async (name: string) => {
+      const p = pipeline(name, () => ({ status: "COMMITTING", remaining: 1000, total: 2646, inserted: 1646, updated: 0, skipped: 0, apply_errors: 0 }));
+      if (p) return p;
+      if (name === "record_source_sync") return { data: { status: "STAGED" }, error: null };
+      return { data: null, error: null };
+    });
+    const r = await syncGoogleSource({ id: sourceRow.id });
+    expect(r).toMatchObject({ ok: true, data: { status: "COMMITTING" }, message: expect.stringContaining("Продолжить применение") });
+    expect(rpc.mock.calls.filter((c) => c[0] === "record_source_sync")).toHaveLength(1); // только после dry run
+  });
+
+  it("сбой пакета применения: понятная ошибка, повтор безопасен", async () => {
+    rpc.mockImplementation(async (name: string) => {
+      if (name === "import_commit_batch") return { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } };
+      const p = pipeline(name, () => ({}));
+      if (p) return p;
+      if (name === "record_source_sync") return { data: { status: "STAGED" }, error: null };
+      return { data: null, error: null };
+    });
+    const r = await syncGoogleSource({ id: sourceRow.id });
+    expect(r).toMatchObject({ ok: false, error: expect.stringContaining("Продолжить применение") });
   });
 
   it("колонка пропала из таблицы: синхронизация останавливается, ошибка записана в источник", async () => {
@@ -90,7 +124,7 @@ describe("Google Sheets: действия импорта", () => {
     const r = await syncGoogleSource({ id: sourceRow.id });
     expect(r).toMatchObject({ ok: false, error: expect.stringContaining("ФИО") });
     expect(rpc).toHaveBeenCalledWith("record_source_sync", expect.objectContaining({ p_source: sourceRow.id, p_error: expect.stringContaining("ФИО") }));
-    expect(rpc.mock.calls.map((c) => c[0])).not.toContain("import_stage");
+    expect(rpc.mock.calls.map((c) => c[0])).not.toContain("import_stage_begin");
   });
 
   it("сохранение источника хранит соответствие по названиям колонок", async () => {
