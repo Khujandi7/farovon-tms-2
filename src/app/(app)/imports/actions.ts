@@ -220,6 +220,69 @@ export async function reanalyzeImportRow(input: unknown): Promise<Result<{ resol
   return { ok: true, message: resolved ? "Подразделение найдено: строка проверена повторно." : "Подразделение всё ещё не найдено. Создайте его или сопоставьте написание.", data: { resolved, messages: o.messages ?? [] } };
 }
 
+/* ---------- Дозавершение применённого импорта сотрудников (M26) ---------- */
+
+export type ReanalyzeJobStep = { processed: number; resolved: number; unresolved: number; errors: number; remaining: number; nextAfter: number; done: boolean; firstError: string | null };
+export type ResolvedPreview = {
+  jobStatus: string; total: number; ready: number; readyCreate: number; readyUpdate: number; unresolvedUnits: number; needsDecision: number; skippedByDecision: number;
+  errors: number; alreadyApplied: number; completedNow: number; unchangedAfter: number;
+  /** Названия, которых нет в справочнике, с числом строк (до 20): создайте их списком в «Подразделения и отделы». */
+  unresolvedNames: Array<{ kind: "DEPARTMENT" | "UNIT"; name: string; rows: number }>;
+  sample: Array<{ rowNo: number; fullName: string; employeeCode: string | null; verdict: "CREATE" | "UPDATE" | "REVIEW" }>;
+};
+export type ApplyResolvedStep = { processed: number; created: number; updated: number; unchanged: number; needsReview: number; errors: number; remaining: number; nextAfter: number; done: boolean };
+const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+const batchInput = z.object({ jobId: uuid, after: z.coerce.number().int().min(0).max(2_000_000_000).default(0), limit: z.coerce.number().int().min(1).max(COMMIT_BATCH_MAX).default(100) });
+
+/** Шаг пакетного повторного разбора подразделений по заданию: учитывает созданные подразделения и подтверждённые написания. Повтор безопасен. */
+export async function reanalyzeImportJob(input: unknown): Promise<Result<ReanalyzeJobStep>> {
+  const actor = await requireRole(WF_ROLES.importAny);
+  if (!actor.ok) return actor;
+  const p = batchInput.safeParse(input);
+  if (!p.success) return fail(WF_ERR.invalid);
+  const res = await callRpc("import_reanalyze_job", { p_job: p.data.jobId, p_limit: p.data.limit, p_after: p.data.after });
+  if (!res.ok) return res;
+  const o = (res.data ?? {}) as Record<string, unknown>;
+  refresh(p.data.jobId);
+  const out: ReanalyzeJobStep = { processed: num(o.processed), resolved: num(o.resolved), unresolved: num(o.unresolved), errors: num(o.errors), remaining: num(o.remaining), nextAfter: num(o.next_after), done: o.done === true, firstError: typeof o.first_error === "string" ? o.first_error : null };
+  return { ok: true, message: out.done ? "Повторный разбор завершён." : `Разобрано строк: ${out.processed}…`, data: out };
+}
+
+/** Предпросмотр дозавершения: ничего не пишет. */
+export async function previewResolvedRows(input: unknown): Promise<Result<ResolvedPreview>> {
+  const actor = await requireRole(WF_ROLES.importAny);
+  if (!actor.ok) return actor;
+  const p = z.object({ jobId: uuid }).safeParse(input);
+  if (!p.success) return fail(WF_ERR.invalid);
+  const res = await callRpc("import_resolved_preview", { p_job: p.data.jobId });
+  if (!res.ok) return res;
+  const o = (res.data ?? {}) as Record<string, unknown>;
+  const sample = Array.isArray(o.sample) ? (o.sample as Array<Record<string, unknown>>).map((x) => ({ rowNo: num(x.row_no), fullName: String(x.full_name ?? ""), employeeCode: x.employee_code ? String(x.employee_code) : null, verdict: (["CREATE", "UPDATE", "REVIEW"].includes(String(x.verdict)) ? String(x.verdict) : "REVIEW") as "CREATE" | "UPDATE" | "REVIEW" })) : [];
+  const names = Array.isArray(o.unresolved_names) ? (o.unresolved_names as Array<Record<string, unknown>>).map((x) => ({ kind: (x.kind === "UNIT" ? "UNIT" : "DEPARTMENT") as "DEPARTMENT" | "UNIT", name: String(x.name ?? ""), rows: num(x.rows) })).filter((x) => x.name) : [];
+  return {
+    ok: true,
+    data: {
+      jobStatus: String(o.job_status ?? ""), total: num(o.total), ready: num(o.ready), readyCreate: num(o.ready_create), readyUpdate: num(o.ready_update), unresolvedUnits: num(o.unresolved_units),
+      needsDecision: num(o.needs_decision), skippedByDecision: num(o.skipped_by_decision), errors: num(o.errors), alreadyApplied: num(o.already_applied), completedNow: num(o.completed_now), unchangedAfter: num(o.unchanged_after), unresolvedNames: names, sample,
+    },
+  };
+}
+
+/** Шаг применения разрешённых строк. Требует причину (явное подтверждение пользователя); повтор и возобновление идемпотентны. */
+export async function applyResolvedRows(input: unknown): Promise<Result<ApplyResolvedStep>> {
+  const actor = await requireRole(WF_ROLES.importAny);
+  if (!actor.ok) return actor;
+  const p = batchInput.extend({ reason, confirmed: z.literal(true, { message: "Подтвердите применение" }) }).safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid);
+  const res = await callRpc("import_apply_resolved_batch", { p_job: p.data.jobId, p_limit: p.data.limit, p_after: p.data.after, p_reason: p.data.reason });
+  if (!res.ok) return res;
+  const o = (res.data ?? {}) as Record<string, unknown>;
+  refresh(p.data.jobId);
+  const out: ApplyResolvedStep = { processed: num(o.processed), created: num(o.created), updated: num(o.updated), unchanged: num(o.unchanged), needsReview: num(o.needs_review), errors: num(o.errors), remaining: num(o.remaining), nextAfter: num(o.next_after), done: o.done === true };
+  if (out.done) revalidatePath("/employees");
+  return { ok: true, message: out.done ? "Применение завершено." : `Обработано строк: ${out.processed}…`, data: out };
+}
+
 export async function commitImport(input: { jobId: string; reason?: string | null }): Promise<Result<{ inserted: number; updated: number; skipped: number }>> {
   const actor = await requireRole(WF_ROLES.importAny);
   if (!actor.ok) return actor;
