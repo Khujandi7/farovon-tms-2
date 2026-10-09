@@ -57,5 +57,8 @@ fi
 if [ -f "$DIR/tests/phase3b_tests.sql" ]; then
   echo "== ТЕСТЫ Phase 3B (M22, только локально) =="; run_test "$DIR/tests/phase3b_tests.sql"
 fi
+if [ -f "$DIR/tests/hotfix_import_tests.sql" ]; then
+  echo "== ТЕСТЫ HOTFIX (M23, пакетная загрузка импорта, только локально) =="; run_test "$DIR/tests/hotfix_import_tests.sql"
+fi
 echo "== ОТПЕЧАТОК СТРУКТУРЫ =="
 psql -U postgres -d tms_test -At -F ' | ' -f "$DIR/tests/fingerprint.sql"
