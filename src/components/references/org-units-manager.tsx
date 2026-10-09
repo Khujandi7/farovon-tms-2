@@ -14,7 +14,7 @@ import { ReasonDialog } from "@/components/workflow/reason-dialog";
 import { useToast } from "@/components/workflow/toast";
 import { addOrgUnitAlias, createOrgUnit, moveOrgUnit, renameOrgUnit, setOrgUnitActive } from "@/app/(app)/settings/references/actions";
 import { OrgUnitsBulkDialog } from "@/components/references/org-units-bulk-dialog";
-import { normUnitName } from "@/lib/org/bulk";
+import { normUnitName, type ExistingAlias } from "@/lib/org/bulk";
 
 export type OrgUnitRow = { id: number; name: string; parent_id: number | null; level: "DEPARTMENT" | "UNIT"; is_active: boolean; employees: number };
 
@@ -25,7 +25,7 @@ type Dialog = null | { kind: "rename" | "move" | "active" | "alias"; unit: OrgUn
  * отдел можно переместить в другой департамент, подразделение деактивируется и восстанавливается (удаления нет).
  * Правила (например, «у департамента не должно быть действующих отделов») проверяет база, её сообщение показывается как есть.
  */
-export function OrgUnitsManager({ units, canEdit, initialQuery = "" }: { units: OrgUnitRow[]; canEdit: boolean; initialQuery?: string }) {
+export function OrgUnitsManager({ units, canEdit, initialQuery = "", aliases = [] }: { units: OrgUnitRow[]; canEdit: boolean; initialQuery?: string; aliases?: ExistingAlias[] }) {
   const router = useRouter();
   const { notify } = useToast();
   const [pending, start] = useTransition();
@@ -190,7 +190,7 @@ export function OrgUnitsManager({ units, canEdit, initialQuery = "" }: { units: 
           <Input id="alias-unit-name" value={alias} onChange={(e) => setAlias(e.target.value)} autoFocus />
         </div>
       </ReasonDialog>
-      <OrgUnitsBulkDialog open={bulkOpen} onClose={() => setBulkOpen(false)} units={units} />
+      <OrgUnitsBulkDialog open={bulkOpen} onClose={() => setBulkOpen(false)} units={units} aliases={aliases} />
       <ReasonDialog
         open={dialog?.kind === "active"}
         title={unit?.is_active ? `Деактивировать «${unit?.name ?? ""}»` : `Восстановить «${unit?.name ?? ""}»`}

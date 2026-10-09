@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/workflow/toast";
 import { reanalyzeImportRow, resolveImportRow, searchEmployeesForImport, type EmployeeHit } from "@/app/(app)/imports/actions";
-import { addOrgUnitAlias, createOrgUnit } from "@/app/(app)/settings/references/actions";
+import { addOrgUnitAlias, createOrgUnitsBulk } from "@/app/(app)/settings/references/actions";
 import { parseUnitIssues, type UnitIssue } from "@/lib/imports/unit-issues";
 import { ROW_STATUS_LABELS, type ImportEntity } from "@/lib/imports/entities";
 import type { JobRowView } from "@/lib/imports/types";
@@ -73,7 +73,14 @@ function UnitResolver({ jobId, row, issues, units, canEdit }: { jobId: string; r
               </Select>
             )}
             <Button type="button" size="sm" variant="outline" className="min-h-10" disabled={pending || (first.kind === "UNIT" && !parent)} data-testid="import-unit-create"
-              onClick={() => run(() => createOrgUnit({ name: first.name, parentId: first.kind === "UNIT" ? parent : null, reason }))}>
+              onClick={() => run(async () => {
+                // явный клик «Создать» — подтверждение пользователя; bulk-RPC идемпотентен (повтор не создаёт дубль) и не угадывает неоднозначное
+                const parentName = first.kind === "UNIT" ? departments.find((d) => String(d.id) === parent)?.name ?? null : null;
+                const r = await createOrgUnitsBulk({ rows: [{ name: first.name, parent: parentName }], reason, confirmed: true });
+                if (!r.ok) return r;
+                if (r.data.errors.length > 0) return { ok: false as const, error: r.data.errors[0]!.error };
+                return { ok: true as const, message: r.message };
+              })}>
               Создать «{first.name}»
             </Button>
           </div>

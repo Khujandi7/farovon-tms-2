@@ -78,7 +78,7 @@ export async function addOrgUnitAlias(input: unknown): Promise<Result> {
   return { ok: true, message: "Написание закреплено за подразделением.", data: undefined };
 }
 
-export type BulkResult = { created: number; skipped: number; errors: Array<{ index: number; name: string; error: string }> };
+export type BulkResult = { created: number; skipped: number; errors: Array<{ index: number; name: string; error: string }>; skippedItems: Array<{ index: number; name: string; reason: string }> };
 
 /**
  * Массовое добавление: вызывается только после предпросмотра и подтверждения пользователя (строки приходят уже разобранными).
@@ -92,9 +92,9 @@ export async function createOrgUnitsBulk(input: unknown): Promise<Result<BulkRes
   if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid);
   const res = await callRpc("create_org_units_bulk", { p_rows: p.data.rows as unknown as Json, p_reason: p.data.reason ?? undefined });
   if (!res.ok) return res;
-  const o = (res.data ?? {}) as { created?: number; skipped?: number; errors?: BulkResult["errors"] };
+  const o = (res.data ?? {}) as { created?: number; skipped?: number; errors?: BulkResult["errors"]; skipped_items?: BulkResult["skippedItems"] };
   refresh();
-  const out: BulkResult = { created: Number(o.created ?? 0), skipped: Number(o.skipped ?? 0), errors: o.errors ?? [] };
+  const out: BulkResult = { created: Number(o.created ?? 0), skipped: Number(o.skipped ?? 0), errors: o.errors ?? [], skippedItems: o.skipped_items ?? [] };
   return { ok: true, message: `Добавлено: ${out.created}, пропущено дублей: ${out.skipped}${out.errors.length ? `, с ошибкой: ${out.errors.length}` : ""}.`, data: out };
 }
 

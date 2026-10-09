@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FormAlert } from "@/components/auth/form-parts";
 import { useToast } from "@/components/workflow/toast";
 import { createOrgUnitsBulk, type BulkResult } from "@/app/(app)/settings/references/actions";
-import { previewBulk, type ExistingUnit, type PreviewStatus } from "@/lib/org/bulk";
+import { previewBulk, type ExistingAlias, type ExistingUnit, type PreviewStatus } from "@/lib/org/bulk";
 
 const STATUS: Record<PreviewStatus, { label: string; variant: "success" | "outline" | "warning" }> = {
   NEW: { label: "Будет создано", variant: "success" },
@@ -23,7 +23,7 @@ const STATUS: Record<PreviewStatus, { label: string; variant: "success" | "outli
  * Массовое добавление из таблицы: вставка → предпросмотр (дубликаты и ошибки видны до записи) → явное подтверждение.
  * Ничего не создаётся автоматически: запись только по кнопке «Добавить» после предпросмотра.
  */
-export function OrgUnitsBulkDialog({ open, onClose, units }: { open: boolean; onClose: () => void; units: ExistingUnit[] }) {
+export function OrgUnitsBulkDialog({ open, onClose, units, aliases = [] }: { open: boolean; onClose: () => void; units: ExistingUnit[]; aliases?: ExistingAlias[] }) {
   const router = useRouter();
   const { notify } = useToast();
   const [pending, start] = useTransition();
@@ -31,7 +31,7 @@ export function OrgUnitsBulkDialog({ open, onClose, units }: { open: boolean; on
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [result, setResult] = useState<BulkResult | null>(null);
-  const preview = useMemo(() => previewBulk(text, units), [text, units]);
+  const preview = useMemo(() => previewBulk(text, units, aliases), [text, units, aliases]);
   const hasInput = text.trim().length > 0;
 
   function close() {
@@ -63,6 +63,11 @@ export function OrgUnitsBulkDialog({ open, onClose, units }: { open: boolean; on
         {result ? (
           <div className="space-y-3" data-testid="org-bulk-result">
             <p className="text-sm">Добавлено: <strong>{result.created}</strong>, пропущено дублей: <strong>{result.skipped}</strong>{result.errors.length > 0 && <>, с ошибкой: <strong>{result.errors.length}</strong></>}.</p>
+            {result.skippedItems.length > 0 && (
+              <ul className="list-disc space-y-0.5 pl-5 text-sm text-muted-foreground" data-testid="org-bulk-skipped">
+                {result.skippedItems.map((e) => (<li key={e.index}>{e.name}: {e.reason}</li>))}
+              </ul>
+            )}
             {result.errors.length > 0 && (
               <ul className="list-disc space-y-0.5 pl-5 text-sm text-muted-foreground">
                 {result.errors.map((e) => (<li key={e.index}>{e.name || "(без названия)"}: {e.error}</li>))}

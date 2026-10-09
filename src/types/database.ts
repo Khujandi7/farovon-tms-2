@@ -3513,6 +3513,10 @@ export type Database = {
         }
         Returns: string
       }
+      add_org_unit_alias: {
+        Args: { p_alias: string; p_id: number; p_reason: string }
+        Returns: undefined
+      }
       add_participants: {
         Args: { p_employees: string[]; p_reason?: string; p_training: string }
         Returns: number
@@ -3588,6 +3592,10 @@ export type Database = {
       create_employee: { Args: { p: Json; p_reason?: string }; Returns: string }
       create_exam: { Args: { p: Json; p_reason?: string }; Returns: string }
       create_org_unit: { Args: { p: Json; p_reason?: string }; Returns: number }
+      create_org_units_bulk: {
+        Args: { p_reason?: string; p_rows: Json }
+        Returns: Json
+      }
       create_request: { Args: { p: Json; p_reason?: string }; Returns: string }
       create_request_link: {
         Args: { p: Json; p_reason?: string }
@@ -3808,6 +3816,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      import_reanalyze_row: { Args: { p_row: number }; Returns: Json }
       import_resolve_row: {
         Args: { p_decision: string; p_match?: string; p_row: number }
         Returns: undefined
