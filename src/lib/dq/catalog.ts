@@ -179,8 +179,8 @@ export const DQ_RULES: Record<string, Rule> = {
   },
   IMPORT_UNIT_UNKNOWN: {
     title: "Импорт: подразделение не найдено",
-    description: "Названия подразделения из файла нет в справочнике ни как название, ни как псевдоним.",
-    actions: (i) => [{ kind: "open", label: "Открыть импорт", href: importJob(i) }, { kind: "link", label: "Справочник подразделений", href: "/settings/references" }, review],
+    description: "Названия подразделения из файла нет в справочнике ни как название, ни как псевдоним. В импорте можно создать подразделение или закрепить написание, после чего строка проверяется повторно.",
+    actions: (i) => [{ kind: "open", label: "Открыть импорт", href: importJob(i) }, { kind: "link", label: "Подразделения и отделы", href: "/settings/references#units" }, review],
   },
   IMPORT_SKILL_UNKNOWN: {
     title: "Импорт: навык не найден",

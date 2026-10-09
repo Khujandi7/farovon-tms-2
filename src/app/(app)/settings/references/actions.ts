@@ -66,6 +66,38 @@ export async function setOrgUnitActive(input: unknown): Promise<Result> {
   return { ok: true, message: p.data.active ? "Подразделение восстановлено." : "Подразделение деактивировано.", data: undefined };
 }
 
+/** Подтверждённое написание: закрепляется за подразделением; одно написание не может указывать на два подразделения (проверяет база). */
+export async function addOrgUnitAlias(input: unknown): Promise<Result> {
+  const actor = await requireRole(WF_ROLES.orgUnits);
+  if (!actor.ok) return actor;
+  const p = z.object({ id: idNum, alias: z.string().trim().min(2, { message: "Укажите написание" }).max(200), reason }).safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid, fieldErrorsFrom(p.error));
+  const res = await callRpc("add_org_unit_alias", { p_id: p.data.id, p_alias: p.data.alias, p_reason: p.data.reason });
+  if (!res.ok) return res;
+  refresh();
+  return { ok: true, message: "Написание закреплено за подразделением.", data: undefined };
+}
+
+export type BulkResult = { created: number; skipped: number; errors: Array<{ index: number; name: string; error: string }>; skippedItems: Array<{ index: number; name: string; reason: string }> };
+
+/**
+ * Массовое добавление: вызывается только после предпросмотра и подтверждения пользователя (строки приходят уже разобранными).
+ * Дубликаты база пропускает, строки с ошибками не создаёт и возвращает в errors.
+ */
+export async function createOrgUnitsBulk(input: unknown): Promise<Result<BulkResult>> {
+  const actor = await requireRole(WF_ROLES.orgUnits);
+  if (!actor.ok) return actor;
+  const row = z.object({ name: z.string().trim().min(2).max(200), parent: z.string().trim().max(200).nullable() });
+  const p = z.object({ rows: z.array(row).min(1, { message: "Нет подразделений для добавления" }).max(1000, { message: "Не больше 1000 строк за раз" }), reason: optReason, confirmed: z.literal(true, { message: "Подтвердите добавление" }) }).safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid);
+  const res = await callRpc("create_org_units_bulk", { p_rows: p.data.rows as unknown as Json, p_reason: p.data.reason ?? undefined });
+  if (!res.ok) return res;
+  const o = (res.data ?? {}) as { created?: number; skipped?: number; errors?: BulkResult["errors"]; skipped_items?: BulkResult["skippedItems"] };
+  refresh();
+  const out: BulkResult = { created: Number(o.created ?? 0), skipped: Number(o.skipped ?? 0), errors: o.errors ?? [], skippedItems: o.skipped_items ?? [] };
+  return { ok: true, message: `Добавлено: ${out.created}, пропущено дублей: ${out.skipped}${out.errors.length ? `, с ошибкой: ${out.errors.length}` : ""}.`, data: out };
+}
+
 /* ---------- Типы мероприятий (только ADMIN) ---------- */
 
 export async function saveEventType(input: unknown): Promise<Result> {

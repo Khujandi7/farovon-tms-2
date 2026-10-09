@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, MoveRight, Pencil, Plus, Power, PowerOff } from "lucide-react";
+import { Building2, ListPlus, MoveRight, Pencil, Plus, Power, PowerOff, Search, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,18 +12,20 @@ import { FormAlert } from "@/components/auth/form-parts";
 import { EmptyState } from "@/components/common/states";
 import { ReasonDialog } from "@/components/workflow/reason-dialog";
 import { useToast } from "@/components/workflow/toast";
-import { createOrgUnit, moveOrgUnit, renameOrgUnit, setOrgUnitActive } from "@/app/(app)/settings/references/actions";
+import { addOrgUnitAlias, createOrgUnit, moveOrgUnit, renameOrgUnit, setOrgUnitActive } from "@/app/(app)/settings/references/actions";
+import { OrgUnitsBulkDialog } from "@/components/references/org-units-bulk-dialog";
+import { normUnitName, type ExistingAlias } from "@/lib/org/bulk";
 
 export type OrgUnitRow = { id: number; name: string; parent_id: number | null; level: "DEPARTMENT" | "UNIT"; is_active: boolean; employees: number };
 
-type Dialog = null | { kind: "rename" | "move" | "active"; unit: OrgUnitRow };
+type Dialog = null | { kind: "rename" | "move" | "active" | "alias"; unit: OrgUnitRow };
 
 /**
  * Справочник подразделений: департамент → отделы. Всё по id: переименование не ломает ссылки (прежнее название остаётся псевдонимом),
  * отдел можно переместить в другой департамент, подразделение деактивируется и восстанавливается (удаления нет).
  * Правила (например, «у департамента не должно быть действующих отделов») проверяет база, её сообщение показывается как есть.
  */
-export function OrgUnitsManager({ units, canEdit }: { units: OrgUnitRow[]; canEdit: boolean }) {
+export function OrgUnitsManager({ units, canEdit, initialQuery = "", aliases = [] }: { units: OrgUnitRow[]; canEdit: boolean; initialQuery?: string; aliases?: ExistingAlias[] }) {
   const router = useRouter();
   const { notify } = useToast();
   const [pending, start] = useTransition();
@@ -31,12 +33,20 @@ export function OrgUnitsManager({ units, canEdit }: { units: OrgUnitRow[]; canEd
   const [dialog, setDialog] = useState<Dialog>(null);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
-  const [newName, setNewName] = useState("");
+  const [newName, setNewName] = useState(initialQuery);
+  const [query, setQuery] = useState(initialQuery);
+  const [alias, setAlias] = useState("");
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [parent, setParent] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const departments = units.filter((u) => u.level === "DEPARTMENT");
   const activeDepartments = departments.filter((d) => d.is_active);
-  const visibleDepartments = showInactive ? departments : departments.filter((d) => d.is_active);
+  const q = normUnitName(query);
+  const match = (u: OrgUnitRow) => q === "" || normUnitName(u.name).includes(q);
+  const childrenOf = (d: OrgUnitRow) => units.filter((u) => u.parent_id === d.id && (showInactive || u.is_active));
+  // департамент виден, если подходит он сам или любой его отдел; при совпадении отдела показываются только подходящие отделы
+  const visibleDepartments = (showInactive ? departments : departments.filter((d) => d.is_active)).filter((d) => match(d) || childrenOf(d).some(match));
+  const shownChildren = (d: OrgUnitRow) => (q === "" || match(d) ? childrenOf(d) : childrenOf(d).filter(match));
   const inactiveCount = units.filter((u) => !u.is_active).length;
 
   function create() {
@@ -50,8 +60,9 @@ export function OrgUnitsManager({ units, canEdit }: { units: OrgUnitRow[]; canEd
       } else setError(r.error);
     });
   }
-  function openDialog(kind: "rename" | "move" | "active", unit: OrgUnitRow) {
+  function openDialog(kind: "rename" | "move" | "active" | "alias", unit: OrgUnitRow) {
     setName(unit.name);
+    setAlias("");
     setTarget("");
     setDialog({ kind, unit });
   }
@@ -60,10 +71,13 @@ export function OrgUnitsManager({ units, canEdit }: { units: OrgUnitRow[]; canEd
     return (
       <>
         <span className={u.is_active ? "" : "text-muted-foreground line-through"}>{u.name}</span>
+        <Badge variant="outline">{u.level === "DEPARTMENT" ? "Департамент" : "Отдел"}</Badge>
+        {u.parent_id !== null && <span className="text-xs text-muted-foreground">в «{units.find((x) => x.id === u.parent_id)?.name ?? "—"}»</span>}
         <span className="text-xs text-muted-foreground">сотрудников: {u.employees}</span>
         {!u.is_active && <Badge variant="outline">Неактивно</Badge>}
         {canEdit && (
           <span className="ml-auto flex flex-wrap gap-1">
+            <Button size="sm" variant="ghost" className="max-md:h-10" aria-label={`Написания ${u.name}`} onClick={() => openDialog("alias", u)} disabled={pending}><Tag aria-hidden="true" /> <span className="max-sm:sr-only">Написания</span></Button>
             <Button size="sm" variant="ghost" className="max-md:h-10" aria-label={`Переименовать ${u.name}`} onClick={() => openDialog("rename", u)} disabled={pending}><Pencil aria-hidden="true" /> <span className="max-sm:sr-only">Переименовать</span></Button>
             {u.level === "UNIT" && u.is_active && (
               <Button size="sm" variant="ghost" className="max-md:h-10" aria-label={`Переместить ${u.name}`} onClick={() => openDialog("move", u)} disabled={pending}><MoveRight aria-hidden="true" /> <span className="max-sm:sr-only">Переместить</span></Button>
@@ -97,22 +111,27 @@ export function OrgUnitsManager({ units, canEdit }: { units: OrgUnitRow[]; canEd
             </Select>
           </div>
           <Button type="submit" disabled={pending || newName.trim().length < 2}><Plus aria-hidden="true" /> Добавить</Button>
+          <Button type="button" variant="outline" onClick={() => setBulkOpen(true)} disabled={pending} data-testid="org-bulk-open"><ListPlus aria-hidden="true" /> Добавить списком</Button>
         </form>
       )}
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input aria-label="Поиск подразделений" placeholder="Поиск по названию" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" data-testid="org-search" />
+      </div>
       {inactiveCount > 0 && (
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Показывать неактивные ({inactiveCount})
         </label>
       )}
       {visibleDepartments.length === 0 ? (
-        <EmptyState className="bg-card" icon={Building2} title="Подразделений пока нет" description="Добавьте департамент, затем его отделы." />
+        <EmptyState className="bg-card" icon={Building2} title={q ? "Ничего не найдено" : "Подразделений пока нет"} description={q ? "Измените запрос или создайте подразделение выше." : "Добавьте департамент, затем его отделы."} />
       ) : (
         <ul className="space-y-3">
           {visibleDepartments.map((d) => (
             <li key={d.id} className="rounded-xl border bg-card shadow-xs" data-testid="department">
               <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-sm font-medium"><UnitLine u={d} /></div>
               <ul className="divide-y">
-                {units.filter((u) => u.parent_id === d.id && (showInactive || u.is_active)).map((u) => (
+                {shownChildren(d).map((u) => (
                   <li key={u.id} className="flex flex-wrap items-center gap-2 py-1.5 pr-3 pl-8 text-sm"><UnitLine u={u} /></li>
                 ))}
               </ul>
@@ -156,6 +175,22 @@ export function OrgUnitsManager({ units, canEdit }: { units: OrgUnitRow[]; canEd
           </Select>
         </div>
       </ReasonDialog>
+      <ReasonDialog
+        open={dialog?.kind === "alias"}
+        title={`Написания «${unit?.name ?? ""}»`}
+        description="Подтверждённый вариант написания (например, из файла кадров) будет находить это подразделение при импорте. Разные подразделения автоматически не объединяются."
+        confirmLabel="Закрепить написание"
+        testId="alias-unit-dialog"
+        onClose={() => setDialog(null)}
+        onConfirm={(reason) => addOrgUnitAlias({ id: unit?.id, alias, reason })}
+        onDone={() => router.refresh()}
+      >
+        <div className="grid gap-2">
+          <Label htmlFor="alias-unit-name">Вариант написания</Label>
+          <Input id="alias-unit-name" value={alias} onChange={(e) => setAlias(e.target.value)} autoFocus />
+        </div>
+      </ReasonDialog>
+      <OrgUnitsBulkDialog open={bulkOpen} onClose={() => setBulkOpen(false)} units={units} aliases={aliases} />
       <ReasonDialog
         open={dialog?.kind === "active"}
         title={unit?.is_active ? `Деактивировать «${unit?.name ?? ""}»` : `Восстановить «${unit?.name ?? ""}»`}
