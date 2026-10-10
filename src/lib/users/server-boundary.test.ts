@@ -13,7 +13,7 @@ function walk(dir: string): string[] {
 }
 const files = walk(SRC).filter((f) => !/\.test\.tsx?$/.test(f));
 const read = (f: string) => fs.readFileSync(f, "utf8");
-const rel = (f: string) => path.relative(SRC, f);
+const rel = (f: string) => path.relative(SRC, f).split(path.sep).join("/");
 
 const SERVER_ONLY_MODULES = ["@/lib/supabase/admin", "@/lib/env.server", "@/lib/users/service", "@/lib/users/guard", "@/lib/google/sheets.server"];
 
