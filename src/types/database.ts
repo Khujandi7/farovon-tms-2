@@ -1819,6 +1819,71 @@ export type Database = {
           },
         ]
       }
+      import_org_mappings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: number
+          job_id: string
+          kind: Database["public"]["Enums"]["org_level"]
+          org_unit_id: number
+          reason: string
+          scope: string
+          src_name: string
+          src_norm: string
+          updated_at: string
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: never
+          job_id: string
+          kind: Database["public"]["Enums"]["org_level"]
+          org_unit_id: number
+          reason: string
+          scope?: string
+          src_name: string
+          src_norm: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: never
+          job_id?: string
+          kind?: Database["public"]["Enums"]["org_level"]
+          org_unit_id?: number
+          reason?: string
+          scope?: string
+          src_name?: string
+          src_norm?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_org_mappings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_org_mappings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_org_mappings_org_unit_id_fkey"
+            columns: ["org_unit_id"]
+            isOneToOne: false
+            referencedRelation: "org_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_source_members: {
         Row: {
           employee_id: string
@@ -3835,6 +3900,52 @@ export type Database = {
       import_match_employees_fast: {
         Args: { p_code: string; p_name: string }
         Returns: Json
+      }
+      import_orgmap_apply: {
+        Args: {
+          p_dry?: boolean
+          p_items: Json
+          p_job: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      import_orgmap_check_target: {
+        Args: {
+          p_job: string
+          p_kind: Database["public"]["Enums"]["org_level"]
+          p_scope: string
+          p_target: number
+        }
+        Returns: undefined
+      }
+      import_orgmap_parse: {
+        Args: { p_data: Json; p_messages: string[] }
+        Returns: {
+          kind: string
+          name: string
+          scope: string
+        }[]
+      }
+      import_orgmap_reanalyze_batch: {
+        Args: { p_after?: number; p_job: string; p_limit?: number }
+        Returns: Json
+      }
+      import_orgmap_resolve: {
+        Args: { p_job: string; p_kind: string; p_name: string; p_scope: string }
+        Returns: number[]
+      }
+      import_orgmap_scan: {
+        Args: { p_job: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      import_orgmap_scope_dept: {
+        Args: { p_job: string; p_scope: string }
+        Returns: number
+      }
+      import_orgmap_similar: {
+        Args: { a: string; b: string }
+        Returns: boolean
       }
       import_reanalyze_job: {
         Args: { p_after?: number; p_job: string; p_limit?: number }
