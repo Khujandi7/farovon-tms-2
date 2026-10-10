@@ -3,7 +3,7 @@ import { safeAction } from "@/lib/imports/batch";
 import { chunkItems } from "@/lib/imports/orgmap";
 
 const MAX_STEPS = 400; // предохранитель
-export const REANALYZE_ROWS = 200; // ≈5 мс на строку, поиск подразделений без сопоставления сотрудников
+export const REANALYZE_ROWS = 100; // ≈7 мс на строку локально; пачка короче лимита 8 с с запасом
 
 export type ReanalyzeTotals = { processed: number; resolved: number; unresolved: number; errors: number; firstError: string | null };
 
@@ -24,7 +24,7 @@ export async function runReanalyzeAll(jobId: string, total: number, onProgress: 
 export type MapRunResult = Omit<OrgMapResult, "items" | "dry"> & { items: OrgMapItemResult[] };
 const EMPTY: MapRunResult = { ok: 0, failed: 0, mapped: 0, aliases: 0, created: 0, cleared: 0, rowsAffected: 0, items: [] };
 
-/** Предпросмотр или сохранение по частям (≤200 значений за вызов; департаменты раньше отделов). Сохранённые части остаются при сбое следующих. */
+/** Предпросмотр или сохранение по частям (≤50 значений за вызов; департаменты раньше отделов). Сохранённые части остаются при сбое следующих. */
 export async function runOrgMap(jobId: string, items: OrgMapItem[], mode: { dry: true } | { dry: false; reason: string }, onProgress?: (done: number, total: number) => void): Promise<{ ok: true; result: MapRunResult } | { ok: false; error: string; result: MapRunResult }> {
   const acc: MapRunResult = { ...EMPTY, items: [] };
   let done = 0;

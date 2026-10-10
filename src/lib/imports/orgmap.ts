@@ -1,7 +1,9 @@
 /** Чистые помощники массового сопоставления оргструктуры (M27): подписи причин, сборка пунктов из выбора пользователя, разбиение на вызовы. */
 import type { OrgCause, OrgGroup, OrgMapItem, OrgSavedMapping } from "@/app/(app)/imports/orgmap-actions";
 
-export const ORGMAP_ITEMS_MAX = 200;
+export const ORGMAP_ITEMS_MAX = 200; // верхняя граница сервера
+/** Размер одного вызова с клиента: запас по лимиту 8 с (M29: ≈13 мс на значение локально, в Production в разы медленнее). */
+export const ORGMAP_CHUNK = 50;
 
 export const CAUSE_LABEL: Record<OrgCause, string> = {
   RESOLVABLE: "Теперь находится — нужен повторный разбор",
@@ -37,7 +39,7 @@ export function buildItems(groups: OrgGroup[], drafts: Record<string, Draft>): O
 }
 
 /** Разбиение на вызовы: департаменты — раньше отделов (контекст отдела зависит от сопоставления департамента). Порядок внутри вида сохраняется. */
-export function chunkItems<T extends { kind: string }>(items: T[], size = ORGMAP_ITEMS_MAX): T[][] {
+export function chunkItems<T extends { kind: string }>(items: T[], size = ORGMAP_CHUNK): T[][] {
   const sorted = [...items.filter((i) => i.kind === "DEPARTMENT"), ...items.filter((i) => i.kind !== "DEPARTMENT")];
   const chunks: T[][] = [];
   for (let i = 0; i < sorted.length; i += size) chunks.push(sorted.slice(i, i + size));
