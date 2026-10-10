@@ -1,5 +1,5 @@
 /** Чистые помощники массового сопоставления оргструктуры (M27): подписи причин, сборка пунктов из выбора пользователя, разбиение на вызовы. */
-import type { OrgCause, OrgGroup, OrgMapItem } from "@/app/(app)/imports/orgmap-actions";
+import type { OrgCause, OrgGroup, OrgMapItem, OrgSavedMapping } from "@/app/(app)/imports/orgmap-actions";
 
 export const ORGMAP_ITEMS_MAX = 200;
 
@@ -44,5 +44,11 @@ export function chunkItems<T extends { kind: string }>(items: T[], size = ORGMAP
   return chunks;
 }
 
-/** Группы, где действие по умолчанию безопасно предложить как «создать»: нигде нет такого названия и родитель известен. */
-export const canBulkCreate = (g: OrgGroup) => g.cause === "MISSING" && g.recommended === "CREATE";
+/** Группы, где действие по умолчанию безопасно предложить как «создать»: такого отдела нет в департаменте из файла (нигде нет, либо похожие только у других департаментов) и родитель известен. Всё равно — только после предпросмотра. */
+export const canBulkCreate = (g: OrgGroup) => (g.cause === "MISSING" || g.cause === "SIMILAR") && g.recommended === "CREATE";
+
+export type SavedMappingRef = Pick<OrgSavedMapping, "kind" | "srcName" | "scope">;
+export const mappingKey = (m: SavedMappingRef) => `${m.kind}|${m.scope}|${m.srcName}`;
+/** Пункты «снять сопоставление» для отмеченных сохранённых сопоставлений. */
+export const clearItems = (mappings: OrgSavedMapping[], marked: Record<string, boolean>): OrgMapItem[] =>
+  mappings.filter((m) => marked[mappingKey(m)]).map((m) => ({ kind: m.kind, srcName: m.srcName, scope: m.scope, action: "CLEAR" as const }));

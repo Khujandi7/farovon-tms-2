@@ -173,6 +173,14 @@ test.describe("массовое сопоставление оргструкту�
     const st = async () => (await (await page.request.get(`${MOCK}/__mock/phase3c?sid=${sid}`)).json()).map;
     await page.goto(`/imports/${MAP_JOB}`);
     await expect(page.getByTestId("orgmap-section")).toBeVisible();
+    // сохранённое ранее недопустимое сопоставление (запись-путь «A → B») видно и может быть снято; счётчик показывает число сохранённых сопоставлений
+    await expect(page.getByTestId("orgmap-saved")).toHaveText("1");
+    await expect(page.getByTestId("orgmap-saved-row")).toContainText("Продажи Х (Опт)");
+    await expect(page.getByTestId("orgmap-saved-invalid")).toContainText("Запись-путь");
+    await page.getByTestId("orgmap-saved-clear").check();
+    await expect(page.getByTestId("orgmap-preview-btn")).toContainText("(1)"); // отметка «снять» попала в набор пунктов
+    await page.getByTestId("orgmap-saved-clear").uncheck();
+    await expect(page.getByTestId("orgmap-preview-btn")).not.toContainText("(1)");
     // 4 уникальных значения вместо 10 строк
     await expect(page.getByTestId("orgmap-groups")).toHaveText("4");
     await expect(page.getByTestId("orgmap-rows")).toHaveText("10");

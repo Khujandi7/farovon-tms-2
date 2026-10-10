@@ -29,6 +29,16 @@ describe("scanOrgMap", () => {
       reviewBreakdown: [{ code: "UNIT_UNKNOWN" }, { code: "EMPLOYEE_AMBIGUOUS", withUnitIssue: 1 }],
       list: [{ kind: "UNIT", cause: "OTHER_PARENT", recommended: "DECIDE", scopeLabel: "Управление Б", candidates: [{ path: "Управление А › Охрана труда", allowed: false, why: "Относится к другому департаменту" }] }] } });
   });
+  it("M28: сохранённые сопоставления (в т.ч. недопустимые), запись-путь как кандидат и путь из файла", async () => {
+    rpc.mockResolvedValue({ data: { job_status: "COMMITTED", groups: 1, mapped_groups: 0, saved_mappings: 1, offset: 0, limit: 300, rows_with_unit_issue: 3, duplicates: 0,
+      mappings: [{ kind: "DEPARTMENT", src_name: "Продажи Х (Опт)", scope: "", scope_label: "", org_unit_id: 172, path: "A → B", invalid: "Запись-путь «родитель → потомок», а не подразделение", open_rows: 3 }],
+      by_cause: {}, review_breakdown: [], protected: {},
+      groups_list: [{ kind: "UNIT", src_name: "0111 СТТ", src_norm: "0111 стт", scope: "P:172", scope_label: "A → B — запись-путь, а не департамент", rows: 3, sample_rows: [2], src_path: "Правление / Продажи Х / 0111 СТТ", cause: "PARENT_UNRESOLVED", action: "DEPT_FIRST",
+        candidates: [{ id: 9, level: "DEPARTMENT", name: "011 → 0111 СТТ", parent_id: null, path: "011 → 0111 СТТ", kind: "PATH_RECORD", allowed: false, why: "Запись-путь «родитель → потомок», а не подразделение" }] }] }, error: null });
+    const r = await scanOrgMap({ jobId: JOB });
+    expect(r).toMatchObject({ ok: true, data: { savedMappings: 1, mappings: [{ kind: "DEPARTMENT", orgUnitId: 172, openRows: 3, invalid: expect.stringContaining("Запись-путь") }],
+      list: [{ cause: "PARENT_UNRESOLVED", srcPath: "Правление / Продажи Х / 0111 СТТ", candidates: [{ kind: "PATH_RECORD", allowed: false }] }] } });
+  });
   it("неверные аргументы и роли без права не доходят до БД", async () => {
     expect(await scanOrgMap({ jobId: "x" })).toMatchObject({ ok: false });
     expect(await scanOrgMap({ jobId: JOB, limit: 5000 })).toMatchObject({ ok: false });

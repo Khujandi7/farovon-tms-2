@@ -26,6 +26,8 @@ function st(store) {
       doneRow: null,
       map: {
         previewCalls: 0, saveCalls: 0, reasons: [], reanalyzeCalls: 0, saved: [], nextUnit: 500,
+        // исторически сохранённое (старой версией) сопоставление департамента с записью-путём «A → B» (M28)
+        savedMaps: [{ kind: "DEPARTMENT", src_name: "Продажи Х (Опт)", scope: "", scope_label: "", org_unit_id: 172, path: "011 Отдел Север → 0111 СТТ Север", invalid: "Запись-путь «родитель → потомок», а не подразделение", open_rows: 3 }],
         groups: [
           { kind: "UNIT", src_name: "Кадры", src_norm: "кадры", scope: "P:1", scope_label: "Финансовый департамент", rows: 4, sample_rows: [2, 3], cause: "SIMILAR", action: "DECIDE", state: "open", mapped_to: null, resolved_to: null,
             candidates: [{ id: 10, level: "UNIT", name: "Отдел кадров", parent_id: 1, path: "Финансовый департамент › Отдел кадров", kind: "SIMILAR", allowed: true, why: null },
@@ -56,7 +58,7 @@ const mapScan = (s) => {
   const byCause = {};
   const list = open.map((g) => { const c = g.state === "mapped" ? "MAPPED" : g.cause; byCause[c] = { groups: (byCause[c]?.groups ?? 0) + 1, rows: (byCause[c]?.rows ?? 0) + g.rows };
     return { ...g, cause: g.state === "mapped" ? "MAPPED" : g.cause, action: g.state === "mapped" ? "REANALYZE" : g.action }; });
-  return { job_status: "COMMITTED", groups: list.length, mapped_groups: open.filter((g) => g.state === "mapped").length, by_cause: byCause, offset: 0, limit: 300,
+  return { job_status: "COMMITTED", groups: list.length, mapped_groups: open.filter((g) => g.state === "mapped").length, saved_mappings: s.map.savedMaps.length, mappings: s.map.savedMaps, by_cause: byCause, offset: 0, limit: 300,
     rows_with_unit_issue: open.reduce((n, g) => n + g.rows, 0), duplicates: 2, review_breakdown: [{ code: "UNIT_UNKNOWN", rows: open.reduce((n, g) => n + g.rows, 0), with_unit_issue: open.reduce((n, g) => n + g.rows, 0) }],
     protected: { applied: 3, skipped_by_decision: 0 }, groups_list: list };
 };
