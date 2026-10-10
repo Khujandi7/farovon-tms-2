@@ -102,6 +102,7 @@ begin
           select org_unit_id into v_prev from import_org_mappings where job_id = p_job and kind = k and src_norm = v_norm and scope = v_scope;
           delete from import_org_mappings where job_id = p_job and kind = k and src_norm = v_norm and scope = v_scope;
           v_changed := found; v_clear := v_clear + 1;
+          if not v_changed then v_rows := 0; end if; -- повторный CLEAR без сопоставления не должен показывать строки как изменённые
           if v_changed and k = 'DEPARTMENT' then
             -- департамент, подставленный этим сопоставлением в ещё не решённые строки, возвращается в «не найден»; применённые и решённые строки не затрагиваются
             with t as (
