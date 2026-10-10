@@ -17,14 +17,17 @@ export type OrgCause = "RESOLVABLE" | "MAPPED" | "AMBIGUOUS" | "PARENT_UNRESOLVE
 export type OrgRecommended = "REANALYZE" | "DEPT_FIRST" | "CREATE" | "DECIDE";
 export type OrgCandidate = {
   id: number; level: "DEPARTMENT" | "UNIT"; name: string; path: string; parentId: number | null;
-  kind: "EXACT" | "ALIAS" | "SIMILAR" | "INACTIVE" | "OTHER_LEVEL"; allowed: boolean; why: string | null;
+  kind: "EXACT" | "ALIAS" | "SIMILAR" | "INACTIVE" | "OTHER_LEVEL" | "PATH_RECORD"; allowed: boolean; why: string | null;
 };
 export type OrgGroup = {
-  kind: "DEPARTMENT" | "UNIT"; srcName: string; srcNorm: string; scope: string; scopeLabel: string; rows: number; sampleRows: number[];
+  kind: "DEPARTMENT" | "UNIT"; srcName: string; srcNorm: string; scope: string; scopeLabel: string; rows: number; sampleRows: number[]; srcPath: string | null;
   cause: OrgCause; recommended: OrgRecommended; mappedTo: { id: number; path: string } | null; resolvedTo: { id: number; path: string } | null; candidates: OrgCandidate[];
 };
+/** Сохранённое в задании сопоставление; invalid — почему оно недопустимо (например, цель — запись-путь «A → B»). */
+export type OrgSavedMapping = { kind: "DEPARTMENT" | "UNIT"; srcName: string; scope: string; scopeLabel: string; orgUnitId: number; path: string; invalid: string | null; openRows: number };
 export type OrgScan = {
-  jobStatus: string; groups: number; mappedGroups: number; offset: number; limit: number; rowsWithUnitIssue: number; duplicates: number;
+  jobStatus: string; groups: number; mappedGroups: number; savedMappings: number; mappings: OrgSavedMapping[];
+  offset: number; limit: number; rowsWithUnitIssue: number; duplicates: number;
   protectedApplied: number; protectedSkippedByDecision: number;
   byCause: Array<{ cause: OrgCause; groups: number; rows: number }>;
   reviewBreakdown: Array<{ code: string; rows: number; withUnitIssue: number }>;
@@ -45,19 +48,23 @@ function parseScan(o: Record<string, unknown>): OrgScan {
       const x = rec(c);
       return {
         id: num(x.id), level: x.level === "UNIT" ? "UNIT" : "DEPARTMENT", name: String(x.name ?? ""), path: String(x.path ?? x.name ?? ""), parentId: x.parent_id == null ? null : num(x.parent_id),
-        kind: (["EXACT", "ALIAS", "SIMILAR", "INACTIVE", "OTHER_LEVEL"].includes(String(x.kind)) ? String(x.kind) : "SIMILAR") as OrgCandidate["kind"], allowed: x.allowed === true, why: typeof x.why === "string" ? x.why : null,
+        kind: (["EXACT", "ALIAS", "SIMILAR", "INACTIVE", "OTHER_LEVEL", "PATH_RECORD"].includes(String(x.kind)) ? String(x.kind) : "SIMILAR") as OrgCandidate["kind"], allowed: x.allowed === true, why: typeof x.why === "string" ? x.why : null,
       };
     }) : [];
     return {
       kind: g.kind === "UNIT" ? "UNIT" : "DEPARTMENT", srcName: String(g.src_name ?? ""), srcNorm: String(g.src_norm ?? ""), scope: String(g.scope ?? ""), scopeLabel: String(g.scope_label ?? ""), rows: num(g.rows),
-      sampleRows: Array.isArray(g.sample_rows) ? (g.sample_rows as unknown[]).map(num) : [],
+      sampleRows: Array.isArray(g.sample_rows) ? (g.sample_rows as unknown[]).map(num) : [], srcPath: typeof g.src_path === "string" && g.src_path ? g.src_path : null,
       cause: ((CAUSES as string[]).includes(String(g.cause)) ? String(g.cause) : "MISSING") as OrgCause,
       recommended: (["REANALYZE", "DEPT_FIRST", "CREATE", "DECIDE"].includes(String(g.action)) ? String(g.action) : "DECIDE") as OrgRecommended,
       mappedTo: pathOf(g.mapped_to), resolvedTo: pathOf(g.resolved_to), candidates: cands,
     };
   }) : [];
+  const mappings = Array.isArray(o.mappings) ? (o.mappings as unknown[]).map((raw): OrgSavedMapping => {
+    const m = rec(raw);
+    return { kind: m.kind === "UNIT" ? "UNIT" : "DEPARTMENT", srcName: String(m.src_name ?? ""), scope: String(m.scope ?? ""), scopeLabel: String(m.scope_label ?? ""), orgUnitId: num(m.org_unit_id), path: String(m.path ?? ""), invalid: typeof m.invalid === "string" ? m.invalid : null, openRows: num(m.open_rows) };
+  }) : [];
   return {
-    jobStatus: String(o.job_status ?? ""), groups: num(o.groups), mappedGroups: num(o.mapped_groups), offset: num(o.offset), limit: num(o.limit), rowsWithUnitIssue: num(o.rows_with_unit_issue), duplicates: num(o.duplicates),
+    jobStatus: String(o.job_status ?? ""), groups: num(o.groups), mappedGroups: num(o.mapped_groups), savedMappings: num(o.saved_mappings), mappings, offset: num(o.offset), limit: num(o.limit), rowsWithUnitIssue: num(o.rows_with_unit_issue), duplicates: num(o.duplicates),
     protectedApplied: num(rec(o.protected).applied), protectedSkippedByDecision: num(rec(o.protected).skipped_by_decision), byCause, reviewBreakdown: breakdown, list,
   };
 }

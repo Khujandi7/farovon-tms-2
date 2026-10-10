@@ -10,7 +10,7 @@ import { FormAlert } from "@/components/auth/form-parts";
 import { ReasonDialog } from "@/components/workflow/reason-dialog";
 import { scanOrgMap, type OrgGroup, type OrgScan } from "@/app/(app)/imports/orgmap-actions";
 import { safeAction } from "@/lib/imports/batch";
-import { CAUSE_LABEL, buildItems, canBulkCreate, groupKey, type Choice, type Draft } from "@/lib/imports/orgmap";
+import { CAUSE_LABEL, buildItems, canBulkCreate, clearItems, groupKey, mappingKey, type Choice, type Draft } from "@/lib/imports/orgmap";
 import { onlyAccepted, runOrgMap, runReanalyzeAll, type MapRunResult } from "@/lib/imports/orgmap-run";
 import type { OrgMapItem } from "@/app/(app)/imports/orgmap-actions";
 
@@ -36,6 +36,7 @@ const causeVariant = (c: OrgGroup["cause"]) => (c === "MAPPED" || c === "RESOLVA
  */
 export function ImportOrgMapSection({ jobId, scan, setScan, onChanged, busy, setBusy, setProgress }: Props) {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [marked, setMarked] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState<"" | OrgGroup["cause"]>("");
   const [q, setQ] = useState("");
   const [show, setShow] = useState(PAGE_SHOW);
@@ -49,7 +50,8 @@ export function ImportOrgMapSection({ jobId, scan, setScan, onChanged, busy, set
     const needle = q.trim().toLowerCase();
     return groups.filter((g) => (!filter || g.cause === filter) && (!needle || g.srcName.toLowerCase().includes(needle) || g.scopeLabel.toLowerCase().includes(needle)));
   }, [groups, filter, q]);
-  const items = useMemo(() => buildItems(groups, drafts), [groups, drafts]);
+  const mappings = useMemo(() => scan?.mappings ?? [], [scan]);
+  const items = useMemo(() => [...buildItems(groups, drafts), ...clearItems(mappings, marked)], [groups, drafts, mappings, marked]);
   const unmapped = groups.filter((g) => g.cause !== "MAPPED" && g.cause !== "RESOLVABLE" && !drafts[groupKey(g)]?.action).length;
   const creatable = groups.filter((g) => canBulkCreate(g) && !drafts[groupKey(g)]?.action);
 
@@ -92,7 +94,7 @@ export function ImportOrgMapSection({ jobId, scan, setScan, onChanged, busy, set
       const re = await runReanalyzeAll(jobId, total, (done, t) => setProgress({ done, total: Math.max(t, done), label: "Повторный разбор строк" }));
       setNote(`Сохранено значений: ${saved.result.ok}${saved.result.failed ? ` (отклонено: ${saved.result.failed})` : ""}; затронуто строк: ${saved.result.rowsAffected}. Разбор: решено ${re.totals.resolved}, осталось ${re.totals.unresolved}${re.totals.errors ? `, ошибок ${re.totals.errors}` : ""}.`);
       if (!re.ok) setError(re.error);
-      setDrafts({}); setPreview(null);
+      setDrafts({}); setMarked({}); setPreview(null);
       await rescan();
       await onChanged();
       return { ok: true, message: "Сопоставление сохранено, строки перепроверены." };
@@ -108,6 +110,15 @@ export function ImportOrgMapSection({ jobId, scan, setScan, onChanged, busy, set
       await rescan();
       await onChanged();
     } finally { setBusy(null); setProgress(null); }
+  }
+
+  function toggleClear(key: string, on: boolean) {
+    setMarked((m) => ({ ...m, [key]: on }));
+    setPreview(null); setNote(undefined);
+  }
+  function markInvalid() {
+    setMarked((m) => { const n = { ...m }; for (const x of mappings) if (x.invalid) n[mappingKey(x)] = true; return n; });
+    setPreview(null);
   }
 
   function markCreate() {
@@ -131,7 +142,7 @@ export function ImportOrgMapSection({ jobId, scan, setScan, onChanged, busy, set
       <div className="space-y-1 text-sm" data-testid="orgmap-summary">
         <p>
           Значений: <strong data-testid="orgmap-groups">{scan.groups}</strong>, строк с замечанием по подразделению: <strong data-testid="orgmap-rows">{scan.rowsWithUnitIssue}</strong>.
-          Сопоставлено в этом импорте: {scan.mappedGroups}. Применено ранее (не затрагивается): {scan.protectedApplied}. Пропущено вашим решением: {scan.protectedSkippedByDecision}.
+          Сохранено сопоставлений в этом импорте: <span data-testid="orgmap-saved">{scan.savedMappings}</span>. Применено ранее (не затрагивается): {scan.protectedApplied}. Пропущено вашим решением: {scan.protectedSkippedByDecision}.
         </p>
         <ul className="flex flex-wrap gap-1.5" data-testid="orgmap-causes">
           {scan.byCause.map((c) => (
@@ -150,6 +161,35 @@ export function ImportOrgMapSection({ jobId, scan, setScan, onChanged, busy, set
         )}
       </div>
 
+      {mappings.length > 0 && (
+        <div className="space-y-1.5 rounded-lg border p-3 text-sm" data-testid="orgmap-saved-list">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-medium">Сохранённые сопоставления этого импорта</p>
+            {mappings.some((m) => m.invalid) && (
+              <Button type="button" size="sm" variant="outline" className="h-auto whitespace-normal py-1.5 text-left" onClick={markInvalid} disabled={busy !== null} data-testid="orgmap-clear-invalid">Отметить все недопустимые для снятия</Button>
+            )}
+          </div>
+          <ul className="divide-y">
+            {mappings.map((m) => {
+              const key = mappingKey(m);
+              return (
+                <li key={key} className="flex flex-col gap-1 py-1.5 sm:flex-row sm:items-center sm:justify-between" data-testid="orgmap-saved-row">
+                  <span className="break-words">
+                    {m.kind === "UNIT" ? "Отдел" : "Департамент"} «{m.srcName}»{m.scopeLabel ? ` (в «${m.scopeLabel}»)` : ""} → {m.path}
+                    {m.openRows > 0 ? ` · нерешённых строк: ${m.openRows}` : ""}
+                    {m.invalid && <span className="ml-1 text-destructive" data-testid="orgmap-saved-invalid">Недопустимо: {m.invalid}</span>}
+                  </span>
+                  <label className="flex items-center gap-1.5 text-xs">
+                    <input type="checkbox" checked={marked[key] === true} onChange={(e) => toggleClear(key, e.target.checked)} disabled={busy !== null} data-testid="orgmap-saved-clear" />
+                    Снять сопоставление
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {groups.length === 0 ? (
         <p className="text-sm text-muted-foreground" data-testid="orgmap-empty">Нерешённых значений подразделений нет.</p>
       ) : (
@@ -160,8 +200,8 @@ export function ImportOrgMapSection({ jobId, scan, setScan, onChanged, busy, set
               <Input value={q} onChange={(e) => { setQ(e.target.value); setShow(PAGE_SHOW); }} placeholder="Найти значение или департамент" aria-label="Поиск значения" className="pl-8" data-testid="orgmap-search" />
             </div>
             {creatable.length > 0 && (
-              <Button type="button" variant="outline" size="sm" onClick={markCreate} disabled={busy !== null} data-testid="orgmap-bulk-create">
-                Отметить «создать» для отсутствующих нигде ({creatable.length})
+              <Button type="button" variant="outline" size="sm" className="h-auto whitespace-normal py-1.5 text-left" onClick={markCreate} disabled={busy !== null} data-testid="orgmap-bulk-create">
+                Отметить «создать» там, где нет подходящего отдела в этом департаменте ({creatable.length})
               </Button>
             )}
           </div>
@@ -178,6 +218,7 @@ export function ImportOrgMapSection({ jobId, scan, setScan, onChanged, busy, set
                 <li key={key} className="grid gap-2 p-3 text-sm lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]" data-testid={`orgmap-row-${idx}`}>
                   <div className="space-y-1">
                     <p className="font-medium break-words">{g.kind === "UNIT" ? "Отдел" : "Департамент"} «{g.srcName}»</p>
+                    {g.srcPath && <p className="text-xs break-words text-muted-foreground" data-testid={`orgmap-path-${idx}`}>Путь в файле: {g.srcPath}</p>}
                     <p className="text-xs text-muted-foreground">
                       {g.kind === "UNIT" ? `В департаменте: ${g.scopeLabel ? `«${g.scopeLabel}»` : "не указан в файле"}. ` : ""}Строк: <span data-testid={`orgmap-rows-${idx}`}>{g.rows}</span>
                       {g.sampleRows.length > 0 ? ` (напр. ${g.sampleRows.join(", ")})` : ""}
@@ -193,7 +234,7 @@ export function ImportOrgMapSection({ jobId, scan, setScan, onChanged, busy, set
                       <ul className="space-y-0.5 text-xs text-muted-foreground" aria-label="Кандидаты в справочнике">
                         {g.candidates.map((c) => (
                           <li key={c.id}>
-                            {c.path} — {c.kind === "EXACT" ? "то же название" : c.kind === "ALIAS" ? "закреплённое написание" : c.kind === "INACTIVE" ? "неактивно" : c.kind === "OTHER_LEVEL" ? "другой уровень" : "похоже"}
+                            {c.path} — {c.kind === "EXACT" ? "то же название" : c.kind === "ALIAS" ? "закреплённое написание" : c.kind === "INACTIVE" ? "неактивно" : c.kind === "OTHER_LEVEL" ? "другой уровень" : c.kind === "PATH_RECORD" ? "запись-путь (не подразделение)" : "похоже"}
                             {!c.allowed && c.why ? ` (${c.why})` : ""}
                           </li>
                         ))}

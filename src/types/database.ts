@@ -4073,6 +4073,7 @@ export type Database = {
       next_training_code: { Args: { p_year: number }; Returns: string }
       norm_name: { Args: { p: string }; Returns: string }
       notify_scan: { Args: Record<PropertyKey, never>; Returns: number }
+      org_is_path_record: { Args: { p_name: string }; Returns: boolean }
       parse_date_text: { Args: { p: string }; Returns: string }
       participants_count: { Args: { p_training: string }; Returns: number }
       pgp_armor_headers: {
