@@ -75,5 +75,8 @@ fi
 if [ -f "$DIR/tests/hotfix5_orgmap_pathrecords_tests.sql" ]; then
   echo "== ТЕСТЫ HOTFIX M28 (записи-пути справочника и сопоставление оргструктуры, только локально) =="; run_test "$DIR/tests/hotfix5_orgmap_pathrecords_tests.sql"
 fi
+if [ -f "$DIR/tests/hotfix6_orgmap_perf_tests.sql" ]; then
+  echo "== ТЕСТЫ HOTFIX M29 (ограничение времени сопоставления оргструктуры, набор как в Production, только локально) =="; run_test "$DIR/tests/hotfix6_orgmap_perf_tests.sql"
+fi
 echo "== ОТПЕЧАТОК СТРУКТУРЫ =="
 psql -U postgres -d tms_test -At -F ' | ' -f "$DIR/tests/fingerprint.sql"

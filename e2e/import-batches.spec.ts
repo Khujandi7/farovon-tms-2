@@ -59,13 +59,23 @@ test.describe("импорт 2646 сотрудников пакетами", () =>
 
   test("сбой посреди применения: импорт не объявлен завершённым, после перезагрузки продолжается без дублей", async ({ page, context, baseURL }) => {
     const sid = await signInAs(context, "admin@test.local", baseURL!);
+    await page.addInitScript(() => {
+      const w = window as unknown as { __stopShown: boolean };
+      w.__stopShown = false;
+      const check = () => {
+        const d = document.querySelector('[data-testid="import-commit-dialog"]');
+        if (d && /Применение остановлено[\s\S]*повтор безопасен/.test(d.textContent ?? "")) w.__stopShown = true;
+      };
+      document.addEventListener("DOMContentLoaded", () => new MutationObserver(check).observe(document.documentElement, { subtree: true, childList: true, characterData: true }));
+    });
     await uploadAndAnalyze(page, 400);
     await page.request.get(`${MOCK}/__mock/phase3b/fail-next-batch?sid=${sid}&after=2`); // 2 пакета ок (120 + 150 строк), третий — таймаут
     await commitWithReason(page);
-    // Клиент сливает пакеты по HTTP в пределах бюджета (несколько RPC за вызов); под параллельной нагрузкой это дольше
-    // дефолтных 5 с. Ошибку проверяем ОДНИМ ожиданием (regex на обе фразы): сразу после показа ошибки run() делает
-    // router.refresh(), и карточка переключается на ветку COMMITTING, размонтируя диалог, — двум отдельным await не хватает окна.
-    await expect(page.getByTestId("import-commit-dialog")).toContainText(/Применение остановлено[\s\S]*повтор безопасен/, { timeout: 30_000 });
+    // Сообщение об остановке живёт в диалоге лишь 50–200 мс: сразу после ошибки run() делает router.refresh(), страница получает статус
+    // COMMITTING, ImportJobActions (key={job.status}) пересоздаётся и диалог размонтируется. Опрос expect() эту щель пропускает (воспроизведено:
+    // 1 сбой из 25 повторов без параллельной нагрузки). Поэтому показ сообщения фиксирует MutationObserver, а ждём устойчивое состояние страницы.
+    await expect(page.getByTestId("import-commit-resume")).toBeVisible({ timeout: 30_000 });
+    expect(await page.evaluate(() => (window as unknown as { __stopShown: boolean }).__stopShown)).toBe(true);
 
     await page.reload();
     await expect(page.getByTestId("import-job-status")).toHaveText("Применяется (не завершено)");

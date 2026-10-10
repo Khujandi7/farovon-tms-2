@@ -41,3 +41,4 @@ jobs:
           grep -q "RESULT 207 / 207 passed" /tmp/db.log
           grep -q "RESULT 66 / 66 passed" /tmp/db.log
           grep -q "RESULT 43 / 43 passed" /tmp/db.log
+          grep -q "RESULT 63 / 63 passed" /tmp/db.log

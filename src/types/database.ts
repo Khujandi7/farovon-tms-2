@@ -3927,6 +3927,7 @@ export type Database = {
           scope: string
         }[]
       }
+      import_orgmap_pfx: { Args: { a: string }; Returns: string[] }
       import_orgmap_reanalyze_batch: {
         Args: { p_after?: number; p_job: string; p_limit?: number }
         Returns: Json
@@ -3935,6 +3936,7 @@ export type Database = {
         Args: { p_job: string; p_kind: string; p_name: string; p_scope: string }
         Returns: number[]
       }
+      import_orgmap_row_counts: { Args: { p_job: string }; Returns: Json }
       import_orgmap_scan: {
         Args: { p_job: string; p_limit?: number; p_offset?: number }
         Returns: Json
@@ -3945,6 +3947,10 @@ export type Database = {
       }
       import_orgmap_similar: {
         Args: { a: string; b: string }
+        Returns: boolean
+      }
+      import_orgmap_similar_fast: {
+        Args: { a: string; b: string; pa: string[]; pb: string[] }
         Returns: boolean
       }
       import_reanalyze_job: {

@@ -23,10 +23,10 @@ describe("buildItems", () => {
 });
 
 describe("chunkItems", () => {
-  it("департаменты идут раньше отделов, части не больше 200", () => {
+  it("департаменты идут раньше отделов, части не больше 50", () => {
     const items = [...Array.from({ length: 250 }, (_, i) => ({ kind: "UNIT", i })), { kind: "DEPARTMENT", i: -1 }];
     const parts = chunkItems(items);
-    expect(parts.map((p) => p.length)).toEqual([200, 51]);
+    expect(parts.map((p) => p.length)).toEqual([50, 50, 50, 50, 50, 1]);
     expect(parts[0]?.[0]).toEqual({ kind: "DEPARTMENT", i: -1 });
   });
 });
