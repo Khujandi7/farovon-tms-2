@@ -7,6 +7,7 @@ import { handleFallback, handlePhase3a1, handlePublic, portalStore } from "./moc
 import { handlePhase3a2 } from "./mock-phase3a2.mjs";
 import { handleGoogle, handlePhase3b, phase3bState } from "./mock-phase3b.mjs";
 import { handlePhase3c, phase3cState } from "./mock-phase3c.mjs";
+import { handlePhase3d, phase3dState } from "./mock-phase3d.mjs";
 
 export const PORT = Number(process.env.MOCK_SUPABASE_PORT ?? 54399);
 const SECRET = "e2e-only-secret";
@@ -204,6 +205,7 @@ export const createMockServer = () => http.createServer(async (req, res) => {
   if (url.pathname.startsWith("/__google/") && handleGoogle(req, res, url)) return;
   if (url.pathname === "/__mock/phase3b") return send(res, 200, phase3bState(url.searchParams.get("sid")));
   if (url.pathname === "/__mock/phase3c") return send(res, 200, phase3cState(url.searchParams.get("sid")));
+  if (url.pathname === "/__mock/phase3d") return send(res, 200, phase3dState(url.searchParams.get("sid")));
   if (url.pathname === "/__mock/phase3b/fail-next-batch") { phase3bState(url.searchParams.get("sid")).failAfter = Number(url.searchParams.get("after") ?? 0); return send(res, 200, { ok: true }); }
   if (url.pathname === "/__mock/reset" || url.pathname === "/__mock/audit") return handlePhase3(req, res, url, body, null, null);
 
@@ -218,6 +220,7 @@ export const createMockServer = () => http.createServer(async (req, res) => {
     if (url.pathname === "/rest/v1/rpc/app_role") return send(res, 200, role);
     const special = ["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles", "/rest/v1/trainings"].includes(url.pathname);
     if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3c(req, res, url, body, role, claims?.session_id)) return;
+    if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3d(req, res, url, body, role, claims?.session_id)) return;
     if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3b(req, res, url, body, role, claims?.session_id)) return;
     if (!["/rest/v1/rpc/app_role", "/rest/v1/rpc/kpi_year", "/rest/v1/profiles"].includes(url.pathname) && handlePhase3a2(req, res, url, body, role, claims?.session_id)) return;
     if (!special && handlePhase3a1(req, res, url, body, role)) return;

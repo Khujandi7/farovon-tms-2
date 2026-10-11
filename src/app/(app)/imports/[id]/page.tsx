@@ -7,6 +7,8 @@ import { ErrorState, ForbiddenState } from "@/components/common/states";
 import { ImportJobActions } from "@/components/imports/import-job-actions";
 import { previewResolvedRows } from "@/app/(app)/imports/actions";
 import { scanOrgMap } from "@/app/(app)/imports/orgmap-actions";
+import { getDecisionsSummary } from "@/app/(app)/imports/decisions-actions";
+import { ImportDecisionsPanel } from "@/components/imports/import-decisions-panel";
 import { ImportFinishPanel } from "@/components/imports/import-finish-panel";
 import { ImportRowCard } from "@/components/imports/import-row-card";
 import { ImportStepper } from "@/components/imports/import-stepper";
@@ -47,7 +49,7 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
 
   let rq = supabase
     .from("import_job_rows")
-    .select("id, row_no, status, messages, review_code, data, raw, candidates, decision, decision_match, match_id", { count: "exact" })
+    .select("id, row_no, status, messages, review_code, data, raw, candidates, decision, decision_match, match_id, applied_id", { count: "exact" })
     .eq("job_id", id)
     .order("row_no")
     .range((page - 1) * PAGE, page * PAGE - 1);
@@ -87,6 +89,12 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
   // Разбор подразделений доступен и после применения (COMMITTED): строки с UNIT_UNKNOWN были пропущены, а справочник мог быть исправлен позже.
   const committed = job.status === "COMMITTED";
   const canResolveUnits = (staged || committed) && canWork;
+  // Решения по сотрудникам доступны и после применения (M30): только для строк с замечанием по сотруднику, которые ещё не применены.
+  const EMPLOYEE_REVIEW = ["EMPLOYEE_FUZZY", "EMPLOYEE_AMBIGUOUS", "EMPLOYEE_NOT_FOUND"];
+  const appliedRowIds = new Set((rows ?? []).filter((r) => r.applied_id).map((r) => r.id));
+  const canDecideRow = (v: JobRowView) => canWork && (staged || (committed && entity === "EMPLOYEES" && v.status === "NEEDS_REVIEW" && v.review_code != null && EMPLOYEE_REVIEW.includes(v.review_code) && !appliedRowIds.has(v.id)));
+  const showDecisions = committed && entity === "EMPLOYEES" && canWork && job.review_rows > 0;
+  const decisionsSummary = showDecisions ? await getDecisionsSummary({ jobId: id }) : null;
   const showFinish = committed && entity === "EMPLOYEES" && canWork && (job.review_rows > 0 || job.new_rows + job.updated_rows > job.inserted + job.updated);
   const [finishPreview, finishScan] = showFinish ? await Promise.all([previewResolvedRows({ jobId: id }), scanOrgMap({ jobId: id, offset: 0, limit: 300 })]) : [null, null];
   const needUnits = canResolveUnits && views.some((v) => v.status === "NEEDS_REVIEW" && v.review_code === "UNIT_UNKNOWN");
@@ -141,6 +149,7 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
         </section>
       )}
 
+      {showDecisions && <ImportDecisionsPanel jobId={id} initial={decisionsSummary?.ok ? decisionsSummary.data : null} />}
       {showFinish && <ImportFinishPanel jobId={id} initial={finishPreview?.ok ? finishPreview.data : null} initialScan={finishScan?.ok ? finishScan.data : null} />}
       {(staged || committing) && canWork && (
         <ImportJobActions key={job.status} jobId={id} unresolved={unresolved} totalApply={job.new_rows + job.updated_rows} status={job.status} processed={processedRows} total={job.total_rows} />
@@ -159,7 +168,7 @@ export default async function ImportJobPage({ params, searchParams }: { params: 
           <p className="rounded-xl border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">Нет строк с таким статусом.</p>
         ) : (
           <ul className="space-y-2" data-testid="import-rows">
-            {views.map((r) => (<ImportRowCard key={r.id} jobId={id} entity={entity} row={r} canDecide={staged && canWork} canResolveUnits={canResolveUnits} applied={committed} units={unitOptions} canEditUnits={can(access.session.role, "orgUnits")} />))}
+            {views.map((r) => (<ImportRowCard key={r.id} jobId={id} entity={entity} row={r} canDecide={canDecideRow(r)} canResolveUnits={canResolveUnits} applied={committed} units={unitOptions} canEditUnits={can(access.session.role, "orgUnits")} />))}
           </ul>
         )}
         {total > PAGE && (
