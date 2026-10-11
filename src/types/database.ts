@@ -3863,6 +3863,15 @@ export type Database = {
         }
         Returns: Json
       }
+      import_apply_decided_batch: {
+        Args: {
+          p_after?: number
+          p_job: string
+          p_limit?: number
+          p_reason?: string
+        }
+        Returns: Json
+      }
       import_bool: { Args: { p: string }; Returns: boolean }
       import_cancel: {
         Args: { p_job: string; p_reason: string }
@@ -3876,6 +3885,7 @@ export type Database = {
         Args: { p_job: string; p_limit?: number; p_reason?: string }
         Returns: Json
       }
+      import_decisions_summary: { Args: { p_job: string }; Returns: Json }
       import_dq_sync: {
         Args: {
           p_code: string
@@ -3958,6 +3968,15 @@ export type Database = {
         Returns: Json
       }
       import_reanalyze_row: { Args: { p_row: number }; Returns: Json }
+      import_resolve_rows_bulk: {
+        Args: {
+          p_decision: string
+          p_job: string
+          p_limit?: number
+          p_rows?: number[]
+        }
+        Returns: Json
+      }
       import_resolve_row: {
         Args: { p_decision: string; p_match?: string; p_row: number }
         Returns: undefined

@@ -128,7 +128,7 @@ export function ImportFinishPanel({ jobId, initial, initialScan = null }: { jobI
             ))}
           </dl>
           <p className="text-xs text-muted-foreground">
-            Применено ранее: {pv.alreadyApplied}. Дозавершено сейчас: {pv.completedNow}. Без отличий: {pv.unchangedAfter}. Пропущено вашим решением: {pv.skippedByDecision}.
+            Применено ранее: {pv.alreadyApplied}. Дозавершено сейчас: {pv.completedNow}. Без отличий: {pv.unchangedAfter}. Строк с вашим решением по сотрудникам: {pv.skippedByDecision} (применяются кнопкой «Применить решения» выше).
           </p>
           {pv.unresolvedNames.length > 0 && (
             <div className="space-y-1 rounded-lg bg-muted/40 p-2 text-sm" data-testid="import-finish-names">
@@ -165,7 +165,7 @@ export function ImportFinishPanel({ jobId, initial, initialScan = null }: { jobI
       {summary && (
         <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm" data-testid="import-finish-summary">
           Итог: создано {summary.created}, обновлено {summary.updated}, без изменений {summary.unchanged}, требует решения {summary.needsReview}, ошибок {summary.errors}.
-          {pv ? ` Осталось нерешённых: ${pv.unresolvedUnits + pv.needsDecision}. Пропущено вашим решением: ${pv.skippedByDecision}.` : ""}{scan ? ` Дубли внутри файла (не применяются): ${scan.duplicates}.` : ""}
+          {pv ? ` Осталось нерешённых: ${pv.unresolvedUnits + pv.needsDecision}. Строк с вашим решением по сотрудникам: ${pv.skippedByDecision}.` : ""}{scan ? ` Дубли внутри файла (не применяются): ${scan.duplicates}.` : ""}
         </p>
       )}
       <FormAlert error={error} />

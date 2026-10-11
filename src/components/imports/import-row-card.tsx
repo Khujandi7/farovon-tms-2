@@ -138,7 +138,7 @@ export function ImportRowCard({ jobId, entity, row, canDecide, units = [], canEd
     });
   }
 
-  const decisionText = row.decision === "SKIP" ? "Решение: пропустить" : row.decision === "APPLY" ? "Решение: применить" : row.decision === "MATCH" ? "Решение: сопоставлено" : null;
+  const decisionText = row.decision === "SKIP" ? "Решение: пропустить" : row.decision === "APPLY" ? (entity === "EMPLOYEES" && row.review_code?.startsWith("EMPLOYEE_") ? "Решение: создать нового" : "Решение: применить") : row.decision === "MATCH" ? "Решение: сопоставить с существующим" : null;
 
   return (
     <li className="space-y-2 rounded-xl border bg-card p-3 shadow-xs sm:p-4" data-testid="import-row" data-status={row.status}>
