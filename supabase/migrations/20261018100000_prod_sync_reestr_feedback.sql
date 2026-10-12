@@ -31,3 +31,7 @@ end $f$;
 alter view if exists public.v_training_list set (security_invoker = true);
 -- NOTE: reestr_participant_staging, trainer_aliases policies and expense-category seed
 -- were also applied directly; verify with `supabase db diff` before the next release.
+
+-- Функции не должны быть доступны anon/PUBLIC (требование теста Phase 1.5, проверка 112)
+revoke execute on function public.norm_name_tg(text) from public, anon;
+revoke execute on function public.merge_trainers(uuid, uuid) from public, anon;
