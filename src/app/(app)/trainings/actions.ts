@@ -308,6 +308,27 @@ export async function removeParticipantsBulk(input: { trainingId: string; ids: s
   return { ok: true, message: failed ? `Удалено: ${removed}. Не удалось: ${failed}${firstError ? ` (${firstError.error})` : ""}.` : `Удалено из участников: ${removed}.`, data: { removed } };
 }
 
+/** Подразделение и должность участника в списке этого обучения («снимок»). Пустое значение очищает поле. Карточка сотрудника не меняется. */
+export async function updateParticipantDetails(input: { id: string; trainingId: string; unit: string; position: string }): Promise<Result<{ id: string }>> {
+  const actor = await requireRole(WF_ROLES.participants);
+  if (!actor.ok) return actor;
+  const p = z
+    .object({ id: uuid, trainingId: uuid, unit: z.string().trim().max(300, { message: "Не длиннее 300 символов" }), position: z.string().trim().max(300, { message: "Не длиннее 300 символов" }) })
+    .safeParse(input);
+  if (!p.success) return fail(p.error.issues[0]?.message ?? WF_ERR.invalid, fieldErrorsFrom(p.error));
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("training_participants")
+    .update({ unit_snapshot: p.data.unit || null, position_snapshot: p.data.position || null })
+    .eq("id", p.data.id)
+    .eq("training_id", p.data.trainingId)
+    .select("id");
+  if (error) return fail(workflowErrorMessage(error));
+  if (!data || data.length === 0) return fail("Участник не найден или нет прав на изменение.");
+  refresh(p.data.trainingId);
+  return { ok: true, message: "Сохранено.", data: { id: p.data.id } };
+}
+
 /** Результат участников (set_participant_result). result = null снимает результат. */
 export async function setParticipantResults(input: { trainingId: string; ids: string[]; result: string | null; note?: string | null; reason: string }): Promise<Result<{ changed: number }>> {
   const actor = await requireRole(WF_ROLES.participants);

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ClipboardPaste, Loader2, Search, Trash2, UserPlus, UserRoundPlus, Users } from "lucide-react";
+import { ClipboardPaste, Loader2, Pencil, Search, Trash2, UserPlus, UserRoundPlus, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -25,6 +25,7 @@ import {
   removeParticipantsBulk,
   searchEmployees,
   setParticipantResults,
+  updateParticipantDetails,
   type EmployeeOption,
 } from "@/app/(app)/trainings/actions";
 import { PARTICIPANT_RESULT_LABELS, PARTICIPANT_RESULT_OPTIONS, PARTICIPANT_RESULT_VARIANT } from "@/lib/trainings/labels";
@@ -61,6 +62,7 @@ export function ParticipantsPanel({ trainingId, participants, orgUnits, canEdit,
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<ParticipantRow | null>(null);
+  const [editing, setEditing] = useState<ParticipantRow | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState<null | "remove" | "result">(null);
   const [bulkResult, setBulkResult] = useState<string>("");
@@ -155,6 +157,11 @@ export function ParticipantsPanel({ trainingId, participants, orgUnits, canEdit,
                     {res && <Badge variant={PARTICIPANT_RESULT_VARIANT[res]} data-testid="participant-result">{PARTICIPANT_RESULT_LABELS[res]}</Badge>}
                     {!p.attended && <Badge variant="outline">Не присутствовал</Badge>}
                     {editable && (
+                      <Button size="icon" variant="ghost" aria-label={`Изменить подразделение и должность: ${p.full_name}`} onClick={() => setEditing(p)} data-testid="edit-participant">
+                        <Pencil aria-hidden="true" />
+                      </Button>
+                    )}
+                    {editable && (
                       <Button size="icon" variant="ghost" aria-label={`Убрать из списка: ${p.full_name}`} onClick={() => setRemoving(p)}>
                         <Trash2 aria-hidden="true" />
                       </Button>
@@ -169,6 +176,8 @@ export function ParticipantsPanel({ trainingId, participants, orgUnits, canEdit,
       )}
 
       <AddParticipantsDialog open={adding} onClose={() => setAdding(false)} trainingId={trainingId} orgUnits={orgUnits} canAddEmployees={canAddEmployees} onDone={() => router.refresh()} />
+
+      <EditParticipantDialog key={editing?.id ?? "none"} row={editing} trainingId={trainingId} onClose={() => setEditing(null)} onDone={() => router.refresh()} />
 
       <ReasonDialog
         open={removing !== null}
@@ -220,6 +229,54 @@ export function ParticipantsPanel({ trainingId, participants, orgUnits, canEdit,
         </div>
       </ReasonDialog>
     </div>
+  );
+}
+
+function EditParticipantDialog({ row, trainingId, onClose, onDone }: { row: ParticipantRow | null; trainingId: string; onClose: () => void; onDone: () => void }) {
+  const { notify } = useToast();
+  const [unit, setUnit] = useState(row?.unit ?? "");
+  const [position, setPosition] = useState(row?.position ?? "");
+  const [error, setError] = useState<string | undefined>();
+  const [pending, startTransition] = useTransition();
+
+  function save() {
+    if (!row) return;
+    setError(undefined);
+    startTransition(async () => {
+      const r = await updateParticipantDetails({ id: row.id, trainingId, unit, position });
+      if (!r.ok) return setError(r.error);
+      notify(true, "Сохранено.");
+      onClose();
+      onDone();
+    });
+  }
+
+  return (
+    <Dialog open={row !== null} onOpenChange={(o) => !o && !pending && onClose()}>
+      <DialogContent className="max-w-md" data-testid="edit-participant-dialog">
+        <DialogHeader>
+          <DialogTitle>{row?.full_name}</DialogTitle>
+          <DialogDescription>Подразделение (или организация) и должность в списке этого обучения. Карточка сотрудника не меняется. Пустое поле — прочерк.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <FormAlert error={error} />
+          <div className="grid gap-1.5">
+            <Label htmlFor="edit-unit">Подразделение / организация</Label>
+            <Input id="edit-unit" value={unit} onChange={(e) => setUnit(e.target.value)} maxLength={300} disabled={pending} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="edit-position">Должность</Label>
+            <Input id="edit-position" value={position} onChange={(e) => setPosition(e.target.value)} maxLength={300} disabled={pending} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={pending}>Отмена</Button>
+          <Button type="button" onClick={save} disabled={pending} data-testid="save-participant">
+            {pending && <Loader2 className="animate-spin" aria-hidden="true" />} Сохранить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
