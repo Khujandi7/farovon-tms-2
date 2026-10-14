@@ -26,7 +26,7 @@ export type ReestrSyncReport = {
 export async function syncReestr(): Promise<Result<ReestrSyncReport>> {
   const actor = await requireRole(WF_ROLES.training);
   if (!actor.ok) return actor;
-  if (!googleConfigured().configured) return fail("Доступ к Google Sheets не настроен: администратору нужно задать GOOGLE_SERVICE_ACCOUNT_JSON на сервере (см. docs/DEPLOYMENT.md).");
+  if (!googleConfigured().configured) return fail("Доступ к Google Sheets не настроен: администратору нужно задать ключ сервисного аккаунта Google на сервере (см. docs/DEPLOYMENT.md).");
   const id = getReestrSheetId();
   const [tr, pa, ex] = await Promise.all([getSheetValues(id, REESTR_TABS.trainings), getSheetValues(id, REESTR_TABS.participants), getSheetValues(id, REESTR_TABS.expenses)]);
   if (!tr.ok) return fail(tr.error);
