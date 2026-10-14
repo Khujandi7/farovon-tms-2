@@ -4058,6 +4058,12 @@ export type Database = {
           unplanned_events: number
         }[]
       }
+      reestr_sync: {
+        Args: {
+          p: Json
+        }
+        Returns: Json
+      }
       link_request: {
         Args: {
           p_confirm?: boolean

@@ -47,3 +47,8 @@ export function getGoogleApiUrls(): { sheets: string; token: string } {
     token: process.env.GOOGLE_OAUTH_TOKEN_URL?.trim() || "https://oauth2.googleapis.com/token",
   };
 }
+
+/** Google-таблица «Реестр обучения сотрудников» для кнопки «Синхронизировать сейчас» (ID из ссылки; по умолчанию — таблица Академии). */
+export function getReestrSheetId(): string {
+  return process.env.REESTR_SHEET_ID?.trim() || "1rr8TYQlVmVr4feUxYZ6V2WAdUcph6_TKCQc8tYcgvdM";
+}
