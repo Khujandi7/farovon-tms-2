@@ -15,6 +15,7 @@ import { availableYears } from "@/lib/years";
 import { PAGE_SIZE, listQuery, parseListParams } from "@/lib/trainings/list-params";
 import { loadEventTypes } from "@/lib/trainings/load-references";
 import { can } from "@/lib/workflows/roles";
+import { ReestrSyncButton } from "@/components/trainings/reestr-sync-button";
 
 export const metadata: Metadata = { title: "Обучения" };
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ export default async function TrainingsPage({ searchParams }: { searchParams: Pr
       section="trainings"
       actions={
         <>
+          <ReestrSyncButton />
           <Button asChild variant="outline" size="sm">
             <Link href="/trainings/requests">
               <ClipboardList /> Заявки
